@@ -1,0 +1,13 @@
+{
+  "name": "closebot-harness",
+  "version": "1.0.0",
+  "description": "Unofficial CloseBot expert for Claude Code: 17 skills for building, auditing, testing and safely publishing CloseBot AI agents, the zero-dependency `cb` CLI, and the CloseBot docs MCP server. Not affiliated with CloseBot.",
+  "author": {
+    "name": "Bleupreneur",
+    "url": "https://github.com/Bleupreneur"
+  },
+  "homepage": "https://github.com/Bleupreneur/closebot-harness",
+  "repository": "https://github.com/Bleupreneur/closebot-harness",
+  "license": "MIT",
+  "keywords": ["closebot", "ai-agents", "chatbot", "gohighlevel", "ghl", "cli", "audit", "sales-automation"]
+}

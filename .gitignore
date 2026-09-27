@@ -1,0 +1,61 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.secrets
+*.key
+*.pem
+
+# Local-only
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Build / test artifacts
+__pycache__/
+*.pyc
+node_modules/
+reports/
+.cache/
+*.log
+
+# Smoke / drift temp files
+/tmp/closebot-*
+
+# Don't ignore the Claude entry points
+!CLAUDE.md
+!.claude/
+
+# self-healing skill loop session markers
+.claude/.skills-used-*
+
+# local backup artifacts
+*.bak-*
+
+# Local sandbox allowlist (copy from cli/sandbox.example.json)
+cli/sandbox.json
+
+# Local user config (copy from cb.config.example.json)
+/cb.config.json
+
+# cb kb build/update manifest for the sandbox KB
+cli/sandbox-kb/.cb-kb-manifest.json
+
+# cb map output (contains your real account data)
+/map/
+
+# Release staging
+/.release/
+
+# internal release working docs
+/RELEASE-PLAN.md
+/VERIFICATION.md
+
+# eval run transcripts (may contain account data)
+/evals/runs/
+
+# local API-surprise log (excerpts of your own account responses)
+/gotchas/auto.jsonl

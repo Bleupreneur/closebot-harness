@@ -1,0 +1,9 @@
+#!/usr/bin/env node
+// bin/cb — PATH entry for plugin installs. Claude Code puts a plugin's bin/ on the Bash
+// tool's PATH, so `cb ...` works from any project. Resolves its own real path (symlinks
+// included) and runs ../cli/cb, which reads process.argv like a direct invocation.
+const { realpathSync } = require('node:fs');
+const { dirname, join } = require('node:path');
+const { pathToFileURL } = require('node:url');
+
+import(pathToFileURL(join(dirname(realpathSync(__filename)), '..', 'cli', 'cb')).href);

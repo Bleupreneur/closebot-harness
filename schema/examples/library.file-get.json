@@ -1,0 +1,16 @@
+{
+  "_note": "Response from GET /library/files/{fileId}. fileStatus values observed: 'uploaded'. CloseBot docs describe the flow: Queued → Processing → Live.",
+  "fileId": "file_XXXXXXXXXXXXXXXX",
+  "fileName": "test-kb.txt",
+  "lastModified": "2026-05-05T00:04:37.3074943",
+  "fileType": "File",
+  "fileStatus": "uploaded",
+  "fileSize": 225,
+  "estimatedFileSize": 225,
+  "sources": [],
+  "accountId": "acct_XXXXXXXXXXXXXXXX",
+  "uri": "https://closebotsaprod.blob.core.windows.net/documents/...",
+  "lastUse": null,
+  "uses": 0,
+  "faviconUrl": null
+}

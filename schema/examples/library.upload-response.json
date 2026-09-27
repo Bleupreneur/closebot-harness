@@ -1,0 +1,4 @@
+{
+  "_note": "Response from POST /library/files (multipart with 'file' field). Returns minimal payload — must GET /library/files/{id} for full FileDto.",
+  "id": "file_XXXXXXXXXXXXXXXX"
+}

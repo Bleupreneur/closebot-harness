@@ -1,0 +1,20 @@
+{
+  "description": "closebot-harness self-healing skill loop (plugin mode). Opt-in: does nothing unless CB_SELF_HEAL=1 (env or ~/.config/closebot/.env). Folder mode uses .claude/settings.json instead.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/skill-mark.sh\"" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/skill-retro-check.sh\"" }
+        ]
+      }
+    ]
+  }
+}

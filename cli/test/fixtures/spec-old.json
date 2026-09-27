@@ -1,0 +1,1 @@
+{ "paths": { "/a": { "get": {} }, "/b": { "post": { "requestBody": { "x": 1 } } }, "/gone": { "delete": {} } } }

@@ -1,0 +1,2 @@
+[ { "fileId": "file_1", "fileName": "services.txt", "fileType": "text", "fileStatus": "ready", "sources": [ { "id": "src_A" } ] },
+  { "fileId": "file_2", "fileName": "other.txt", "fileType": "text", "fileStatus": "ready", "sources": [ { "id": "src_B" } ] } ]

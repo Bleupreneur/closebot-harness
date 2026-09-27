@@ -1,0 +1,2 @@
+{ "nodes": [ { "id": "n1", "type": "Method", "position": { "x": 1, "y": 2 }, "selected": true, "data": { "Title": "General Info Collection", "Instructions": "hi", "EnableLibraryContext": true } } ],
+  "edges": [], "variables": { "business": {} }, "customTools": [], "enabledGlobalToolNames": [] }

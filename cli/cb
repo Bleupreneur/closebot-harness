@@ -1,0 +1,182 @@
+#!/usr/bin/env node
+// cli/cb — CloseBot CLI entry. Zero deps, Node 22.
+import { loadApiKey, SETUP_HINT, REPO_DIR } from './lib/config.mjs';
+import { loadCliSpec, loadOverrides, findCommand, tierOf, opKey } from './lib/spec.mjs';
+import { request } from './lib/http.mjs';
+import { printJson, printTable, fail, CbValidationError } from './lib/output.mjs';
+import { join } from 'node:path';
+import { recordSurprise, gotchaCommands } from './lib/gotcha.mjs';
+import { botCommands } from './lib/bot.mjs';
+import { kbCommands } from './lib/kb.mjs';
+import { specCommands } from './lib/specrefresh.mjs';
+import { mapCommand, MAP_HELP } from './lib/map.mjs';
+import { doctorCommand, DOCTOR_HELP } from './lib/doctor.mjs';
+import { initCommand, INIT_HELP } from './lib/init.mjs';
+
+// Top-level commands (no subcommand): first-run setup, health check, account map.
+// init and doctor run without an API key; map needs one.
+const ROOT_HELP = `cb root — print the harness root (repo in folder mode, plugin install in plugin mode)
+
+Usage: cb root
+
+Skills refer to bundled scripts as scripts/<name>.sh relative to this root; run them as
+bash "$(cb root)/scripts/<name>.sh" ... from any directory.`;
+
+const TOPLEVEL = {
+  init: { run: initCommand, help: INIT_HELP, needsKey: false, summary: 'first-run setup: create .env (mode 600), optional sandbox.json / cb.config.json (--global: ~/.config/closebot)' },
+  root: { run: () => { process.stdout.write(REPO_DIR + '\n'); }, help: ROOT_HELP, needsKey: false, summary: 'print the harness root (where scripts/ and skills/ live)' },
+  doctor: { run: doctorCommand, help: DOCTOR_HELP, needsKey: false, summary: 'check Node, .env, key, agency, spec drift, sandbox, template bot' },
+  map: { run: mapCommand, help: MAP_HELP, needsKey: true, summary: 'read-only map of your whole account -> map/<agency>-<date>/' },
+};
+
+// Real names come from `jq -r '.commands.bot | to_entries[] | "\(.key)\t\(.value.method) \(.value.path)"' cli/closebot-cli.spec.json`:
+// get-bot = GET /bot, delete-bot = DELETE /bot/{id}.
+const ALIASES = { bot: { list: 'get-bot', delete: 'delete-bot' } };
+
+// scripts/build.py names some generated operations after paths a composite already owns
+// end-to-end (e.g. POST /bot/{id}/publish → generated "post-publish"). Those generated
+// commands skip every safety check the composite provides (sandbox refusal, pre-flight,
+// diff-vs-live, verify-by-refetch for publish; re-pull/clobber verification for save) —
+// refuse them outright rather than let them run with just --confirm.
+const COMPOSITE_OWNED = {
+  'POST /bot/{id}/publish': 'cb bot publish <id> --confirm',
+  'POST /bot/{id}/save': 'cb bot push <id> <steps.json>',
+};
+
+export function parseArgs(argv) {
+  const pos = []; const flags = {};
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a.startsWith('--')) {
+      const k = a.slice(2);
+      const next = argv[i + 1];
+      if (next !== undefined && !next.startsWith('--')) { flags[k] = next; i++; } else flags[k] = true;
+    } else pos.push(a);
+  }
+  return { pos, flags };
+}
+
+const COMPOSITES = {}; // group -> { cmd: async (ctx, args) => void }  (Tasks 8–11 register here)
+COMPOSITES.bot = { ...botCommands };
+COMPOSITES.gotcha = { ...gotchaCommands };
+COMPOSITES.kb = { ...kbCommands };
+COMPOSITES.spec = { ...specCommands };
+
+// Tier shown for composite rows in `cb help <group>` — composites aren't in the generated
+// spec so tierOf() can't derive them from method+path. Kept in sync by hand; a missing
+// entry defaults to 1 (safe: never under-reports a write as read-only).
+const COMPOSITE_TIERS = {
+  bot: { version: 0, pull: 0, push: 1, publish: 2, test: 0, audit: 0 },
+  kb: { build: 1, update: 1, verify: 0 },
+  spec: { refresh: 1 },
+  gotcha: { add: 1, review: 0 },
+};
+
+async function main() {
+  const { pos, flags } = parseArgs(process.argv.slice(2));
+  const [group, cmd] = pos;
+  const spec = loadCliSpec();
+  const overrides = loadOverrides();
+
+  if (TOPLEVEL[group] && flags.help) { process.stdout.write(TOPLEVEL[group].help + '\n'); return; }
+  if (group === 'help' && TOPLEVEL[cmd]) { process.stdout.write(TOPLEVEL[cmd].help + '\n'); return; }
+
+  if (!group || group === 'help') {
+    const g = cmd && spec.commands[cmd];
+    const comp = cmd && COMPOSITES[cmd];
+    if (g || comp) {
+      // Composite rows first — they're the safe, sanctioned entry point and should be
+      // what a caller sees before the generated alias that bypasses their checks.
+      const compRows = comp ? Object.keys(comp).map(n => ({ command: `${cmd} ${n}`, method: 'composite', path: '-', tier: COMPOSITE_TIERS[cmd]?.[n] ?? 1 })) : [];
+      const genRows = g ? Object.entries(g).map(([n, c]) => ({ command: `${cmd} ${n}`, method: c.method, path: c.path, tier: tierOf(c.method, c.path, overrides) })) : [];
+      // Alias rows (e.g. `bot list` -> get-bot, `bot delete` -> delete-bot) — several
+      // skills and this help output's own siblings call the alias, but it was invisible
+      // here, so an agent that checks help first concluded the alias didn't exist.
+      const aliasRows = cmd && ALIASES[cmd] ? Object.entries(ALIASES[cmd]).map(([alias, target]) => {
+        const tc = g && g[target];
+        return { command: `${cmd} ${alias}`, method: 'alias', path: `alias of ${target}`, tier: tc ? tierOf(tc.method, tc.path, overrides) : '?' };
+      }) : [];
+      printTable([...compRows, ...genRows, ...aliasRows]);
+    } else {
+      process.stdout.write('cb — CloseBot CLI (unofficial). Start here: cb init -> cb doctor -> cb map\n\n');
+      printTable(Object.entries(TOPLEVEL).map(([name, t]) => ({ command: name, does: t.summary })));
+      process.stdout.write('\n');
+      printTable([...new Set([...Object.keys(spec.commands), ...Object.keys(COMPOSITES)])].sort().map(g => ({ group: g })));
+      process.stdout.write('\ncb help <group> lists a group\'s commands; cb <command> --help explains init/doctor/map.\n');
+    }
+    return;
+  }
+
+  if (flags['unsafe-raw']) process.stderr.write('cb: --unsafe-raw set — tokens and raw source fields will be printed\n');
+
+  if (group === 'gotcha') {
+    const ctxNoKey = { spec, overrides, flags, pos: pos.slice(2), json: !!flags.json, dryRun: !!flags['dry-run'],
+      confirm: !!flags.confirm, unsafeRaw: !!flags['unsafe-raw'] };
+    return COMPOSITES.gotcha[cmd]?.(ctxNoKey) ?? fail(2, `unknown gotcha command: ${cmd} (try: cb gotcha add|review)`);
+  }
+
+  if (TOPLEVEL[group] && !TOPLEVEL[group].needsKey) return TOPLEVEL[group].run({ spec, overrides, flags, pos: pos.slice(1), json: !!flags.json });
+
+  const key = loadApiKey(process.env);
+  if (!key) fail(2, SETUP_HINT);
+
+  const ctx = { spec, overrides, key, flags, pos: pos.slice(2), json: !!flags.json, dryRun: !!flags['dry-run'],
+    confirm: !!flags.confirm, unsafeRaw: !!flags['unsafe-raw'],
+    call: (o) => request({ key, overrides, dryRun: !!flags['dry-run'], unsafeRaw: !!flags['unsafe-raw'], onSurprise: recordSurprise, ...o }),
+    // A second caller for reads that must run for real even under --dry-run (a
+    // composite's pre-flight GETs, e.g. cb bot publish --dry-run's diff) — --dry-run
+    // means "don't send the write", not "don't read". Only ctx.call honours --dry-run.
+    read: (o) => request({ key, overrides, dryRun: false, unsafeRaw: !!flags['unsafe-raw'], onSurprise: recordSurprise, ...o }) };
+
+  if (TOPLEVEL[group]) return TOPLEVEL[group].run({ ...ctx, pos: pos.slice(1) });
+  if (COMPOSITES[group]?.[cmd]) return COMPOSITES[group][cmd](ctx);
+
+  const name = ALIASES[group]?.[cmd] ?? cmd;
+  const c = findCommand(spec, group, name);
+  if (!c) fail(2, `unknown command: ${group} ${cmd} (try: cb help ${group})`);
+
+  // Applies regardless of --confirm/--dry-run: this is not a tier gate, it's a "this
+  // command is disabled" refusal for generated aliases that shadow a composite's safety
+  // checks (isSandbox, pre-flight, diff-vs-live, verify-by-refetch for publish; the
+  // re-pull/clobber check for save).
+  const ownerHint = COMPOSITE_OWNED[opKey(c.method, c.path)];
+  if (ownerHint) fail(4, `${group} ${cmd} (${c.method} ${c.path}) is owned by the composite "${ownerHint}"; the generated command is disabled because it skips the safety checks`);
+
+  const tier = tierOf(c.method, c.path, overrides);
+  if (tier === 2 && !ctx.confirm) fail(4, `Tier 2 operation ${c.method} ${c.path} refused: pass --confirm (destructive/billing/publish)`);
+
+  const params = {}, query = {}; let body;
+  for (const a of c.args || []) {
+    const v = flags[a.name];
+    if (v === undefined) { if (a.required) fail(2, `missing --${a.name}`); continue; }
+    if (a.in === 'path' || c.path.includes(`{${a.name}}`)) params[a.name] = v;
+    else if (a.in === 'query') query[a.name] = v;
+    else (body ??= {})[a.name] = v;
+  }
+  if (flags.body) {
+    const raw = flags.body === true ? await readStdin() : flags.body;
+    try { body = JSON.parse(raw); }
+    catch (e) { throw new CbValidationError(`--body is not valid JSON: ${e.message}`); }
+  }
+  const base = spec.base_urls[c.base || 'rest'];
+  const res = await ctx.call({ method: c.method, base, path: c.path, params, query, body });
+  if (!res.ok) {
+    // requiredQuery refusals never hit the network (status stays 0) — render the note
+    // that explains why, instead of the misleading "HTTP 0".
+    if (res.status === 0 && res.note) fail(3, `${c.method} ${c.path} refused: ${res.note}`);
+    fail(3, `${c.method} ${c.path} → HTTP ${res.status}${res.note ? ` (${res.note})` : ''}\n${JSON.stringify(res.data).slice(0, 500)}`);
+  }
+  if (res.note) process.stderr.write(`note: ${res.note}\n`);
+  if (ctx.json || !Array.isArray(res.data)) printJson(res.data); else printTable(res.data);
+}
+
+async function readStdin() { let s = ''; for await (const c of process.stdin) s += c; return s; }
+
+export { COMPOSITES, ALIASES, TOPLEVEL };
+main().catch(e => {
+  // A thrown (not fail()-ed) error is a validation refusal (exit 2) when it's tagged as
+  // such, or an ENOENT/EACCES reading a required local file (steps.json, overrides.json,
+  // the CLI spec) — everything else (a genuine API/network failure) stays exit 3.
+  const code = (e instanceof CbValidationError || e?.code === 'ENOENT' || e?.code === 'EACCES') ? 2 : (e?.exitCode ?? 3);
+  fail(code, e.message);
+});

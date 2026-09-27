@@ -1,0 +1,82 @@
+{
+  "tier2": [
+    "POST /bot/{id}/publish",
+    "POST /agency/billing/refill",
+    "POST /agency/billing/refill/source/{sourceId}",
+    "PUT /report/{id}/shares",
+    "POST /bot/{id}/saveTools",
+    "POST /bot/{botId}/testSession/{leadId}/rollback",
+    "POST /agency/billing/transactions/source/{sourceId}"
+  ],
+  "tier2Exempt": [
+    "DELETE /bot/{botId}/testSession/{leadId}"
+  ],
+  "redactFields": [
+    "accessToken",
+    "refreshToken",
+    "apiKey",
+    "token"
+  ],
+  "projectSources": [
+    "sourceId",
+    "name",
+    "category",
+    "timezone"
+  ],
+  "liveMessageStatuses": {
+    "410": "No Account: resolved account missing (also the catch-all for empty body / unrecognized id)",
+    "420": "No Credits: account has insufficient credits",
+    "430": "No ID: id field missing",
+    "440": "No Message Body: message field missing",
+    "450": "Bot Limit Reached: per-contact processing cap hit",
+    "460": "Account Limit: account-level cap (threshold undocumented)"
+  },
+  "operations": {
+    "POST /bot/{id}/saveTools": {
+      "bodyShape": "array",
+      "note": "spec says object; API wants raw array; semantics are merge/upsert, [] is a no-op"
+    },
+    "POST /smart-faq": {
+      "expect": 204,
+      "followUp": {
+        "method": "GET",
+        "path": "/smart-faq",
+        "queryFromBody": [
+          "sourceId"
+        ],
+        "matchField": "question"
+      }
+    },
+    "POST /library/files": {
+      "followUp": {
+        "method": "GET",
+        "path": "/library/files/{id}",
+        "idFromResponse": "id"
+      }
+    },
+    "GET /library/files": {
+      "clientFilter": {
+        "query": "sourceId",
+        "arrayPath": "sources",
+        "field": "id"
+      }
+    },
+    "GET /bot/{id}/steps": {
+      "requiredQuery": [
+        "botVersion"
+      ]
+    },
+    "GET /library/files/{fileId}/view": {
+      "expectedStatus": {
+        "404": "webscrape files have no viewable content via API"
+      }
+    },
+    "GET /agency/source": {
+      "project": "sources",
+      "envelope": "results"
+    },
+    "GET /agency/source/{id}": {
+      "project": "sources"
+    }
+  }
+}

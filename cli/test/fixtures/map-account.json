@@ -1,0 +1,61 @@
+{
+  "/agency/current": { "id": "agc_EXAMPLE1", "name": "Acme Growth Agency", "betaTester": false, "features": ["analytics"],
+    "members": [ { "accountId": "acc_1", "name": "Pat Example", "email": "pat@example.com", "role": "owner" } ] },
+  "/agency": [ { "id": "agc_EXAMPLE1", "name": "Acme Growth Agency", "members": [ { "email": "pat@example.com" } ] } ],
+  "/agency/source": { "total": 3, "page": 0, "pageSize": 100, "results": [
+    { "sourceId": "src_EXAMPLEA", "name": "Acme Med Spa", "category": "GHL", "timezone": "America/Chicago", "connected": true, "topicsEnabled": true,
+      "key": "srckey-SECRET", "accessToken": "eyJ.SECRET.jwt",
+      "bots": [ { "id": "bot_EXAMPLE1", "botName": "Booking Agent", "channels": ["SMS", "FB"], "enabled": true } ] },
+    { "sourceId": "src_EXAMPLEB", "name": "Beta Dental", "category": "WebHook", "timezone": "America/New_York", "connected": false, "topicsEnabled": false,
+      "accessToken": "eyJ.SECRET2.jwt",
+      "bots": [ { "id": "bot_EXAMPLE2", "botName": "Thin Bot", "channels": ["SMS"], "enabled": true } ] },
+    { "sourceId": "src_EXAMPLEC", "name": "Orphan Source", "category": "GHL", "timezone": "UTC", "connected": true, "topicsEnabled": false, "bots": [] }
+  ] },
+  "/agency/source/src_EXAMPLEA/channels": [ { "id": "ch1", "name": "SMS" }, { "id": "ch2", "name": "FB" } ],
+  "/agency/source/src_EXAMPLEB/channels": [ { "id": "ch3", "name": "SMS" } ],
+  "/agency/source/src_EXAMPLEC/channels": [],
+  "/bot": [
+    { "id": "bot_EXAMPLE1", "name": "Booking Agent", "modifiedBy": "pat@example.com",
+      "versions": [ { "version": "0.0.3", "published": true }, { "version": "0.0.4", "published": false } ],
+      "sources": [ { "id": "src_EXAMPLEA", "name": "Acme Med Spa", "category": "GHL", "enabled": true, "channelList": ["SMS", "FB"], "key": "srckey-SECRET" } ],
+      "personaIds": ["per_EXAMPLE1"], "tools": [ { "type": "calendar", "enabled": true } ] },
+    { "id": "bot_EXAMPLE2", "name": "Thin Bot",
+      "versions": [ { "version": "0.0.1", "published": false } ],
+      "sources": [ { "id": "src_EXAMPLEB", "name": "Beta Dental", "category": "WebHook", "enabled": true, "channelList": ["SMS"] } ],
+      "personaIds": [] },
+    { "id": "bot_EXAMPLE3", "name": "Broken Bot",
+      "versions": [ { "version": "1.0.0", "published": true } ],
+      "sources": [], "personaIds": ["per_EXAMPLE1"] }
+  ],
+  "/bot/bot_EXAMPLE1": { "id": "bot_EXAMPLE1", "name": "Booking Agent",
+      "versions": [ { "version": "0.0.3", "published": true }, { "version": "0.0.4", "published": false } ],
+      "sources": [ { "id": "src_EXAMPLEA", "name": "Acme Med Spa", "category": "GHL", "enabled": true, "channelList": ["SMS", "FB"] } ],
+      "personaIds": ["per_EXAMPLE1"] },
+  "/bot/bot_EXAMPLE1/steps": { "nodes": [
+      { "id": "n0", "type": "Source", "data": {} },
+      { "id": "n1", "type": "Method", "data": { "Title": "General Info Collection", "EnableLibraryContext": true } },
+      { "id": "n2", "type": "Method", "data": { "Title": "Booking Agent", "EnableLibraryContext": true } },
+      { "id": "n3", "type": "Method", "data": { "Title": "Deposit Confirmation Agent", "EnableLibraryContext": false } },
+      { "id": "n4", "type": "MultiObjective", "data": { "Title": "Objections", "Objectives": [ { "Title": "Handle Pricing" } ] } },
+      { "id": "n5", "type": "ScenarioKeyword", "data": { "Title": "Stop" } }
+    ], "edges": [ { "source": "n0", "target": "n1" }, { "source": "n1", "target": "n2" }, { "source": "n2", "target": "n3" }, { "source": "n3", "target": "n4" } ] },
+  "/bot/bot_EXAMPLE2/steps": { "nodes": [
+      { "id": "m0", "type": "Source", "data": {} },
+      { "id": "m1", "type": "Method", "data": { "Title": "General Info Collection" } },
+      { "id": "m2", "type": "Statement", "data": { "Title": "Lost node" } }
+    ], "edges": [ { "source": "m0", "target": "m1" } ] },
+  "/persona": [ { "id": "per_EXAMPLE1", "personaName": "Friendly Front Desk", "botIds": ["bot_EXAMPLE1"], "modifiedBy": "pat@example.com", "default": true } ],
+  "/library/files": [
+    { "fileId": "file_1", "fileName": "services.txt", "fileType": "text", "fileStatus": "indexed", "sources": [ { "id": "src_EXAMPLEA" } ] },
+    { "fileId": "file_2", "fileName": "prices.pdf", "fileType": "pdf", "fileStatus": "processing", "sources": [ { "id": "src_EXAMPLEA" } ] }
+  ],
+  "/smart-faq": [
+    { "id": "faq_1", "sourceId": "src_EXAMPLEA", "question": "Do you take insurance?", "answer": "No", "leadIds": ["lead_PII1"] },
+    { "id": "faq_2", "sourceId": "src_EXAMPLEA", "question": "Parking?", "answer": null, "leadIds": ["lead_PII2"] }
+  ],
+  "/dashboard": [ { "id": "dash_1", "name": "Weekly", "data": { "big": true } } ],
+  "/report": [ { "id": "rep_1", "name": "Bookings", "ownerName": "Pat Example" } ],
+  "/botMetric/agencySummary": { "currentMonthMessageCount": 120, "lastMonthMessageCount": 90 },
+  "/botMetric/messageCount": 42,
+  "/botMetric/actionCount": 7
+}

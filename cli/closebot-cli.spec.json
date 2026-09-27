@@ -1,0 +1,3662 @@
+{
+  "name": "closebot",
+  "version": "1.0.0",
+  "description": "CloseBot.ai CLI \u2014 agent-native, mirrors the REST + Live Message API.",
+  "auth": {
+    "env": "CLOSEBOT_API_KEY",
+    "header": "X-CB-KEY"
+  },
+  "base_urls": {
+    "rest": "https://api.closebot.com",
+    "message": "https://api.closebot.ai"
+  },
+  "global_flags": [
+    {
+      "name": "--json",
+      "doc": "Output raw JSON (default: pretty)"
+    },
+    {
+      "name": "--dry-run",
+      "doc": "Print the request without sending"
+    },
+    {
+      "name": "--confirm",
+      "doc": "Required to run a Tier 2 operation (DELETE, publish, billing refills)"
+    },
+    {
+      "name": "--unsafe-raw",
+      "doc": "Skip redaction/projection; prints raw token fields and raw source rows"
+    }
+  ],
+  "commands": {
+    "account": {
+      "post-apikey": {
+        "method": "POST",
+        "path": "/account/apiKey",
+        "summary": "Create API Key",
+        "args": [],
+        "request_body": "CreateApiKeyInput",
+        "response": "CreateApiKeyOutput",
+        "example": "closebot account post-apikey"
+      },
+      "get-apikey": {
+        "method": "GET",
+        "path": "/account/apiKey",
+        "summary": "List API keys",
+        "args": [],
+        "request_body": null,
+        "response": "ApiKeyDTO",
+        "example": "closebot account get-apikey"
+      },
+      "delete-apikey": {
+        "method": "DELETE",
+        "path": "/account/apiKey/{keyId}",
+        "summary": "Delete API Key",
+        "args": [
+          {
+            "name": "keyId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The key ID."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot account delete-apikey"
+      }
+    },
+    "accountnotification": {
+      "get-account-notifications": {
+        "method": "GET",
+        "path": "/account-notifications",
+        "summary": "List the calling account's notifications for the active agency.",
+        "args": [],
+        "request_body": null,
+        "response": "AccountNotificationDto",
+        "example": "closebot accountnotification get-account-notifications"
+      },
+      "put-account-notifications": {
+        "method": "PUT",
+        "path": "/account-notifications/{id}",
+        "summary": "Update one of the calling account's notifications.",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "AccountNotificationUpdateDto",
+        "response": "AccountNotificationDto",
+        "example": "closebot accountnotification put-account-notifications --id <uuid>"
+      }
+    },
+    "agency": {
+      "get-current": {
+        "method": "GET",
+        "path": "/agency/current",
+        "summary": "Get agency",
+        "args": [],
+        "request_body": null,
+        "response": "AgencyDto",
+        "example": "closebot agency get-current"
+      },
+      "get-usage": {
+        "method": "GET",
+        "path": "/agency/usage",
+        "summary": "Get usage",
+        "args": [
+          {
+            "name": "scopes",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Comma-separated list of scopes to retrieve. Scopes are: bots, storage, users, responses."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot agency get-usage"
+      },
+      "post-invite": {
+        "method": "POST",
+        "path": "/agency/invite",
+        "summary": "Invite users",
+        "args": [],
+        "request_body": "InviteUserInput",
+        "response": null,
+        "example": "closebot agency post-invite"
+      },
+      "delete-invite": {
+        "method": "DELETE",
+        "path": "/agency/invite",
+        "summary": "Revoke invitation",
+        "args": [
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The invited email to revoke"
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot agency delete-invite"
+      },
+      "get-agency": {
+        "method": "GET",
+        "path": "/agency",
+        "summary": "List agencies",
+        "args": [],
+        "request_body": null,
+        "response": "AgencyDto",
+        "example": "closebot agency get-agency"
+      }
+    },
+    "analytics": {
+      "get-values": {
+        "method": "GET",
+        "path": "/analytics/dimensions/{dimension}/values",
+        "summary": "List dimension values available for a given dimension.",
+        "args": [
+          {
+            "name": "dimension",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "One of channel, bot, persona, detail1, detail2."
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Required for detail1/detail2 \u2014 their meaning depends on the metric."
+          }
+        ],
+        "request_body": null,
+        "response": "AnalyticsDimensionValueDto",
+        "example": "closebot analytics get-values"
+      },
+      "get-metrics": {
+        "method": "GET",
+        "path": "/analytics/metrics",
+        "summary": "List all metrics available.",
+        "args": [],
+        "request_body": null,
+        "response": "AnalyticsMetricDto",
+        "example": "closebot analytics get-metrics"
+      },
+      "post-query": {
+        "method": "POST",
+        "path": "/analytics/query",
+        "summary": "Run an analytics query for the active agency.",
+        "args": [],
+        "request_body": "AnalyticsQueryRequest",
+        "response": "AnalyticsQueryResponse",
+        "example": "closebot analytics post-query"
+      },
+      "get-source-timezones": {
+        "method": "GET",
+        "path": "/analytics/source-timezones",
+        "summary": "Time zones configured on the agency's sources, used to pick a sensible default for\ntime-of-day analytics (see the hourOfWeek resolution on POST /analytics/query).",
+        "args": [
+          {
+            "name": "sourceIds",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "AnalyticsSourceTimeZonesResponse",
+        "example": "closebot analytics get-source-timezones"
+      },
+      "post-options": {
+        "method": "POST",
+        "path": "/analytics/topics/options",
+        "summary": "Topics available as a conversations filter, optionally scoped to a set of sources.",
+        "args": [],
+        "request_body": "TopicOptionsRequest",
+        "response": "TopicOptionsResponse",
+        "example": "closebot analytics post-options"
+      },
+      "post-topics": {
+        "method": "POST",
+        "path": "/analytics/topics",
+        "summary": "Topic treemap and per-topic daily series for the active agency.",
+        "args": [],
+        "request_body": "TopicsQueryRequest",
+        "response": "TopicsQueryResponse",
+        "example": "closebot analytics post-topics"
+      }
+    },
+    "billing": {
+      "post-refill": {
+        "method": "POST",
+        "path": "/agency/billing/refill",
+        "summary": "Refill agency wallet",
+        "args": [],
+        "request_body": "CreateRefillDto",
+        "response": null,
+        "example": "closebot billing post-refill"
+      },
+      "post-source": {
+        "method": "POST",
+        "path": "/agency/billing/refill/source/{sourceId}",
+        "summary": "Refill source wallet",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": "CreateRefillDto",
+        "response": null,
+        "example": "closebot billing post-source"
+      },
+      "get-re-billing": {
+        "method": "GET",
+        "path": "/agency/billing/re-billing",
+        "summary": "Get re-billing settings",
+        "args": [],
+        "request_body": null,
+        "response": "ReBillingDto",
+        "example": "closebot billing get-re-billing"
+      },
+      "put-re-billing": {
+        "method": "PUT",
+        "path": "/agency/billing/re-billing",
+        "summary": "Update re-billing",
+        "args": [],
+        "request_body": "ReBillingUpdateInput",
+        "response": null,
+        "example": "closebot billing put-re-billing"
+      },
+      "get-ai-cost-breakdown": {
+        "method": "GET",
+        "path": "/agency/billing/ai-cost-breakdown",
+        "summary": "AI cost breakdown for a period",
+        "args": [
+          {
+            "name": "startTime",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "endTime",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "sourceId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "AiCostBreakdownDto",
+        "example": "closebot billing get-ai-cost-breakdown"
+      },
+      "get-balance": {
+        "method": "GET",
+        "path": "/agency/billing/balance",
+        "summary": "Get agency balance",
+        "args": [],
+        "request_body": null,
+        "response": "BalanceDto",
+        "example": "closebot billing get-balance"
+      },
+      "get-options": {
+        "method": "GET",
+        "path": "/agency/billing/options",
+        "summary": "Get agency billing",
+        "args": [],
+        "request_body": null,
+        "response": "BillingOptionsDto",
+        "example": "closebot billing get-options"
+      },
+      "put-options": {
+        "method": "PUT",
+        "path": "/agency/billing/options",
+        "summary": "Update agency billing",
+        "args": [],
+        "request_body": "UpdateBillingConfigInput",
+        "response": "BillingOptionsDto",
+        "example": "closebot billing put-options"
+      },
+      "get-source": {
+        "method": "GET",
+        "path": "/agency/billing/balance/source/{sourceId}",
+        "summary": "Get source balance",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": null,
+        "response": "BalanceDto",
+        "example": "closebot billing get-source"
+      },
+      "get-source-2": {
+        "method": "GET",
+        "path": "/agency/billing/transactions/source/{sourceId}",
+        "summary": "List source transactions",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Filter by status when included. Statuses are: pending, succeeded, failed."
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Filter by transaction type when included. Comma-separated list of:"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": null
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "TransactionDtoPaginated",
+        "example": "closebot billing get-source-2"
+      },
+      "post-source-2": {
+        "method": "POST",
+        "path": "/agency/billing/transactions/source/{sourceId}",
+        "summary": "Add source transaction",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": "AddSourceTransactionDto",
+        "response": "TransactionDto",
+        "example": "closebot billing post-source-2"
+      },
+      "get-transactions": {
+        "method": "GET",
+        "path": "/agency/billing/transactions",
+        "summary": "List agency transactions",
+        "args": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Filter by status when included. Statuses are: pending, succeeded, failed."
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Filter by transaction type when included. Comma-separated list of:"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": null
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "TransactionDtoPaginated",
+        "example": "closebot billing get-transactions"
+      },
+      "get-usages": {
+        "method": "GET",
+        "path": "/agency/billing/usages",
+        "summary": "List billed usages",
+        "args": [
+          {
+            "name": "startTime",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The start time."
+          },
+          {
+            "name": "endTime",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The end time."
+          }
+        ],
+        "request_body": null,
+        "response": "BilledUsageDto",
+        "example": "closebot billing get-usages"
+      },
+      "delete-source": {
+        "method": "DELETE",
+        "path": "/agency/billing/transactions/source/{sourceId}/{id}",
+        "summary": "Delete source transaction",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "doc": "ID of the transaction to delete."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot billing delete-source --id <uuid>"
+      }
+    },
+    "bot": {
+      "post-ai": {
+        "method": "POST",
+        "path": "/bot/ai",
+        "summary": "Create bot with AI",
+        "args": [],
+        "request_body": "AiCreateBotInput",
+        "response": "BotDto",
+        "example": "closebot bot post-ai"
+      },
+      "post-source": {
+        "method": "POST",
+        "path": "/bot/{id}/source/{sourceId}",
+        "summary": "Attach a source to a bot",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": "AttachSourceInput",
+        "response": null,
+        "example": "closebot bot post-source --id <uuid>"
+      },
+      "delete-source": {
+        "method": "DELETE",
+        "path": "/bot/{id}/source/{sourceId}",
+        "summary": "Detach a source from a bot",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot bot delete-source --id <uuid>"
+      },
+      "get-mcp-server": {
+        "method": "GET",
+        "path": "/bot/{id}/source/{sourceId}/mcp-server",
+        "summary": "",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "BotSourceMcpAuthDto",
+        "example": "closebot bot get-mcp-server --id <uuid>"
+      },
+      "post-mcp-server": {
+        "method": "POST",
+        "path": "/bot/{id}/source/{sourceId}/mcp-server",
+        "summary": "",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "BotSourceMcpAuthInput",
+        "response": null,
+        "example": "closebot bot post-mcp-server --id <uuid>"
+      },
+      "delete-mcp-server": {
+        "method": "DELETE",
+        "path": "/bot/{id}/source/{sourceId}/mcp-server",
+        "summary": "",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "serverUrl",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot bot delete-mcp-server --id <uuid>"
+      },
+      "post-bot": {
+        "method": "POST",
+        "path": "/bot",
+        "summary": "Create a new bot",
+        "args": [],
+        "request_body": "CreateBotInput",
+        "response": "BotDto",
+        "example": "closebot bot post-bot"
+      },
+      "get-bot": {
+        "method": "GET",
+        "path": "/bot",
+        "summary": "List bots",
+        "args": [],
+        "request_body": null,
+        "response": "BotDto",
+        "example": "closebot bot get-bot"
+      },
+      "delete-bot": {
+        "method": "DELETE",
+        "path": "/bot/{id}",
+        "summary": "Delete a bot",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot bot delete-bot --id <uuid>"
+      },
+      "get-bot-2": {
+        "method": "GET",
+        "path": "/bot/{id}",
+        "summary": "Get a bot",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          }
+        ],
+        "request_body": null,
+        "response": "BotDto",
+        "example": "closebot bot get-bot-2 --id <uuid>"
+      },
+      "put-bot": {
+        "method": "PUT",
+        "path": "/bot/{id}",
+        "summary": "Update a bot",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          }
+        ],
+        "request_body": "UpdateBotInput",
+        "response": "BotDto",
+        "example": "closebot bot put-bot --id <uuid>"
+      },
+      "post-duplicate": {
+        "method": "POST",
+        "path": "/bot/{id}/duplicate",
+        "summary": "Duplicate a bot",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          }
+        ],
+        "request_body": null,
+        "response": "BotDto",
+        "example": "closebot bot post-duplicate --id <uuid>"
+      },
+      "post-end": {
+        "method": "POST",
+        "path": "/bot/{id}/persona-split-test/end",
+        "summary": "End a persona split test",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          }
+        ],
+        "request_body": null,
+        "response": "BotDto",
+        "example": "closebot bot post-end --id <uuid>"
+      },
+      "get-export": {
+        "method": "GET",
+        "path": "/bot/{id}/export",
+        "summary": "Export a bot",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          },
+          {
+            "name": "botVersion",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The bot version (x.y.z). If not provided, the latest version is exported."
+          }
+        ],
+        "request_body": null,
+        "response": "ExportBotResponse",
+        "example": "closebot bot get-export --id <uuid>"
+      },
+      "get-templates": {
+        "method": "GET",
+        "path": "/bot/bbb/templates",
+        "summary": "Get bot builder builder templates",
+        "args": [],
+        "request_body": null,
+        "response": null,
+        "example": "closebot bot get-templates"
+      },
+      "get-steps": {
+        "method": "GET",
+        "path": "/bot/{id}/steps",
+        "summary": "Get steps for a version",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          },
+          {
+            "name": "botVersion",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The bot version (x.y.z)."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot bot get-steps --id <uuid>"
+      },
+      "get-persona-performance": {
+        "method": "GET",
+        "path": "/bot/{id}/persona-performance",
+        "summary": "Persona performance for a bot, scoped to a date range or split-test window.",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Inclusive start of the performance window."
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Exclusive end of the performance window."
+          },
+          {
+            "name": "splitTestId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional split-test ID (the bot ID of the 1:1 split test). Uses that"
+          }
+        ],
+        "request_body": null,
+        "response": "BotPersonaPerformanceResponseDto",
+        "example": "closebot bot get-persona-performance --id <uuid>"
+      },
+      "get-persona-split-tests": {
+        "method": "GET",
+        "path": "/bot/{id}/persona-split-tests",
+        "summary": "List past persona split tests for a bot",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": "Records to skip. Defaults to 0."
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": "Page size, clamped to Closebot.Api.Controllers.BotController.MaxSplitTestPageSize."
+          }
+        ],
+        "request_body": null,
+        "response": "PersonaSplitTestPageDto",
+        "example": "closebot bot get-persona-split-tests --id <uuid>"
+      },
+      "get-nodedescriptors": {
+        "method": "GET",
+        "path": "/bot/nodeDescriptors",
+        "summary": "Get the node descriptors",
+        "args": [],
+        "request_body": null,
+        "response": "NodeInformation",
+        "example": "closebot bot get-nodedescriptors"
+      },
+      "post-preview-import": {
+        "method": "POST",
+        "path": "/bot/preview-import",
+        "summary": "Validate Flow",
+        "args": [],
+        "request_body": "PreviewImportInput",
+        "response": "PreviewImportResponse",
+        "example": "closebot bot post-preview-import"
+      },
+      "post-publish": {
+        "method": "POST",
+        "path": "/bot/{id}/publish",
+        "summary": "Publish a bot",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          }
+        ],
+        "request_body": null,
+        "response": "PublishBotResponse",
+        "example": "closebot bot post-publish --id <uuid>"
+      },
+      "post-save": {
+        "method": "POST",
+        "path": "/bot/{id}/save",
+        "summary": "Save a bot",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          }
+        ],
+        "request_body": "SaveBotInput",
+        "response": "SaveBotResponse",
+        "example": "closebot bot post-save --id <uuid>"
+      },
+      "post-savetools": {
+        "method": "POST",
+        "path": "/bot/{id}/saveTools",
+        "summary": "Save bot tools",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          }
+        ],
+        "request_body": "ToolInputDto",
+        "response": "BotToolDto",
+        "example": "closebot bot post-savetools --id <uuid>"
+      },
+      "put-version": {
+        "method": "PUT",
+        "path": "/bot/{id}/version/{version}",
+        "summary": "Update a bot version",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The version ID."
+          }
+        ],
+        "request_body": "UpdateVersionInput",
+        "response": null,
+        "example": "closebot bot put-version --id <uuid>"
+      }
+    },
+    "botmetric": {
+      "get-agencysummary": {
+        "method": "GET",
+        "path": "/botMetric/agencySummary",
+        "summary": "Get agency summary",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional source ID."
+          }
+        ],
+        "request_body": null,
+        "response": "AgencyDashboardSummaryResponse",
+        "example": "closebot botmetric get-agencysummary"
+      },
+      "get-actioncount": {
+        "method": "GET",
+        "path": "/botMetric/actionCount",
+        "summary": "Get action count",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional lead ID."
+          },
+          {
+            "name": "sourceId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional source ID."
+          },
+          {
+            "name": "botId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional bot ID."
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional start date."
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional end date."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot botmetric get-actioncount"
+      },
+      "get-actions": {
+        "method": "GET",
+        "path": "/botMetric/actions",
+        "summary": "Get actions",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional lead ID."
+          },
+          {
+            "name": "sourceId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional source ID."
+          },
+          {
+            "name": "botId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional bot ID."
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional start date."
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional end date."
+          },
+          {
+            "name": "maxCount",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": "Optional maximum number of actions to return."
+          }
+        ],
+        "request_body": null,
+        "response": "BotMetricAction",
+        "example": "closebot botmetric get-actions"
+      },
+      "get-agencymetric": {
+        "method": "GET",
+        "path": "/botMetric/agencyMetric",
+        "summary": "Get agency metric",
+        "args": [
+          {
+            "name": "metric",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The metric to get. Valid options: responses, bookings, activeSources, contacts, totalStorage, revenue."
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The start date."
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The end date."
+          },
+          {
+            "name": "resolution",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The resolution."
+          },
+          {
+            "name": "sourceId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional source ID."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot botmetric get-agencymetric"
+      },
+      "get-bookinggraph": {
+        "method": "GET",
+        "path": "/botMetric/bookingGraph",
+        "summary": "Get booking graph",
+        "args": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The start date."
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The end date."
+          },
+          {
+            "name": "resolution",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The resolution. Valid options are hourly, daily, or monthly."
+          },
+          {
+            "name": "sourceId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional source ID."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot botmetric get-bookinggraph"
+      },
+      "get-logs": {
+        "method": "GET",
+        "path": "/botMetric/logs",
+        "summary": "Get logs",
+        "args": [
+          {
+            "name": "botId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional bot ID."
+          },
+          {
+            "name": "messageId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional message ID."
+          },
+          {
+            "name": "sourceId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional source ID."
+          },
+          {
+            "name": "leadId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional lead ID."
+          },
+          {
+            "name": "actionId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional action ID."
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional start date."
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional end date."
+          },
+          {
+            "name": "maxCount",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": "Optional maximum number of logs to return."
+          }
+        ],
+        "request_body": null,
+        "response": "BotMetricLog",
+        "example": "closebot botmetric get-logs"
+      },
+      "get-messagecount": {
+        "method": "GET",
+        "path": "/botMetric/messageCount",
+        "summary": "Get message count",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional source ID."
+          },
+          {
+            "name": "leadId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional lead ID."
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional start date."
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional end date."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot botmetric get-messagecount"
+      },
+      "get-messagefeedback": {
+        "method": "GET",
+        "path": "/botMetric/messageFeedback",
+        "summary": "Get messages with feedback",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The lead ID."
+          }
+        ],
+        "request_body": null,
+        "response": "MessageFeedbackResponse",
+        "example": "closebot botmetric get-messagefeedback"
+      },
+      "post-messagefeedback": {
+        "method": "POST",
+        "path": "/botMetric/messageFeedback",
+        "summary": "Save message feedback",
+        "args": [],
+        "request_body": "MessageFeedbackRequest",
+        "response": null,
+        "example": "closebot botmetric post-messagefeedback"
+      },
+      "get-messagelikes": {
+        "method": "GET",
+        "path": "/botMetric/messageLikes",
+        "summary": "Get messages with likes",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The lead ID."
+          }
+        ],
+        "request_body": null,
+        "response": "MessageLikesResponse",
+        "example": "closebot botmetric get-messagelikes"
+      },
+      "get-messagereason": {
+        "method": "GET",
+        "path": "/botMetric/messageReason",
+        "summary": "Get message feedback reason",
+        "args": [
+          {
+            "name": "messageId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The message ID."
+          }
+        ],
+        "request_body": null,
+        "response": "MessageReason",
+        "example": "closebot botmetric get-messagereason"
+      },
+      "get-messages": {
+        "method": "GET",
+        "path": "/botMetric/messages",
+        "summary": "Get messages",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional source ID."
+          },
+          {
+            "name": "leadId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional lead ID."
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional start date."
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Optional end date."
+          },
+          {
+            "name": "maxCount",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": "Optional maximum number of messages to return."
+          }
+        ],
+        "request_body": null,
+        "response": "BotMetricMessage",
+        "example": "closebot botmetric get-messages"
+      }
+    },
+    "botsourcevariable": {
+      "get-botvariables": {
+        "method": "GET",
+        "path": "/botVariables/{botId}/{sourceId}",
+        "summary": "Get source variables",
+        "args": [
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": null,
+        "response": "BotVariableDto",
+        "example": "closebot botsourcevariable get-botvariables --id <uuid>"
+      },
+      "post-botvariables": {
+        "method": "POST",
+        "path": "/botVariables/{botId}/{sourceId}",
+        "summary": "Update a source variable",
+        "args": [
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": "BotVariableUpdateInput",
+        "response": null,
+        "example": "closebot botsourcevariable post-botvariables --id <uuid>"
+      }
+    },
+    "bottemplate": {
+      "get-bottemplates": {
+        "method": "GET",
+        "path": "/botTemplates",
+        "summary": "List templates",
+        "args": [],
+        "request_body": null,
+        "response": "BotTemplateDto",
+        "example": "closebot bottemplate get-bottemplates"
+      }
+    },
+    "bottesting": {
+      "post-testsession": {
+        "method": "POST",
+        "path": "/bot/{botId}/testSession",
+        "summary": "Create a test session",
+        "args": [
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          }
+        ],
+        "request_body": null,
+        "response": "TestSession",
+        "example": "closebot bottesting post-testsession --id <uuid>"
+      },
+      "get-testsession": {
+        "method": "GET",
+        "path": "/bot/{botId}/testSession",
+        "summary": "List test sessions",
+        "args": [
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": "The offset."
+          },
+          {
+            "name": "maxCount",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": "The maximum count."
+          }
+        ],
+        "request_body": null,
+        "response": "ListLeadDto",
+        "example": "closebot bottesting get-testsession --id <uuid>"
+      },
+      "delete-testsession": {
+        "method": "DELETE",
+        "path": "/bot/{botId}/testSession/{leadId}",
+        "summary": "Delete a test session",
+        "args": [
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          },
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The lead ID."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot bottesting delete-testsession --id <uuid>"
+      },
+      "put-testsession": {
+        "method": "PUT",
+        "path": "/bot/{botId}/testSession/{leadId}",
+        "summary": "Update a test session",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The lead ID."
+          },
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "UpdateSessionInput",
+        "response": "UpdateSessionDto",
+        "example": "closebot bottesting put-testsession --id <uuid>"
+      },
+      "post-force-step": {
+        "method": "POST",
+        "path": "/bot/{botId}/testSession/{leadId}/force-step",
+        "summary": "Force processing",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The lead ID."
+          },
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot bottesting post-force-step --id <uuid>"
+      },
+      "get-messages": {
+        "method": "GET",
+        "path": "/bot/{botId}/testSession/messages/{leadId}",
+        "summary": "Listen for messages",
+        "args": [
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          },
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The lead ID."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot bottesting get-messages --id <uuid>"
+      },
+      "post-rollback": {
+        "method": "POST",
+        "path": "/bot/{botId}/testSession/{leadId}/rollback",
+        "summary": "Rollback a test session",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "BotTestingRollbackInput",
+        "response": "BotTestingRollbackOutput",
+        "example": "closebot bottesting post-rollback --id <uuid>"
+      },
+      "post-message": {
+        "method": "POST",
+        "path": "/bot/{botId}/testSession/message",
+        "summary": "Send a message to a test session",
+        "args": [
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The bot ID."
+          }
+        ],
+        "request_body": "TestSessionMessageInput",
+        "response": null,
+        "example": "closebot bottesting post-message --id <uuid>"
+      }
+    },
+    "dashboard": {
+      "post-dashboard": {
+        "method": "POST",
+        "path": "/dashboard",
+        "summary": "",
+        "args": [],
+        "request_body": "CreateDashboardInput",
+        "response": "DashboardDto",
+        "example": "closebot dashboard post-dashboard"
+      },
+      "get-dashboard": {
+        "method": "GET",
+        "path": "/dashboard",
+        "summary": "",
+        "args": [],
+        "request_body": null,
+        "response": "DashboardDto",
+        "example": "closebot dashboard get-dashboard"
+      },
+      "delete-dashboard": {
+        "method": "DELETE",
+        "path": "/dashboard/{id}",
+        "summary": "",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot dashboard delete-dashboard --id <uuid>"
+      },
+      "get-dashboard-2": {
+        "method": "GET",
+        "path": "/dashboard/{id}",
+        "summary": "",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "DashboardDto",
+        "example": "closebot dashboard get-dashboard-2 --id <uuid>"
+      },
+      "put-dashboard": {
+        "method": "PUT",
+        "path": "/dashboard/{id}",
+        "summary": "",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "UpdateDashboardInput",
+        "response": null,
+        "example": "closebot dashboard put-dashboard --id <uuid>"
+      }
+    },
+    "hierarchy": {
+      "post-hierarchy": {
+        "method": "POST",
+        "path": "/hierarchy",
+        "summary": "Add a folder",
+        "args": [],
+        "request_body": "AddHierarchyInput",
+        "response": "AddHierarchyOutput",
+        "example": "closebot hierarchy post-hierarchy"
+      },
+      "get-hierarchy": {
+        "method": "GET",
+        "path": "/hierarchy",
+        "summary": "List folders",
+        "args": [],
+        "request_body": null,
+        "response": "ListHierarchyResult",
+        "example": "closebot hierarchy get-hierarchy"
+      },
+      "delete-hierarchy": {
+        "method": "DELETE",
+        "path": "/hierarchy/{id}",
+        "summary": "Delete a folder",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the folder to delete."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot hierarchy delete-hierarchy --id <uuid>"
+      },
+      "get-hierarchy-2": {
+        "method": "GET",
+        "path": "/hierarchy/{id}",
+        "summary": "Get a folder",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the folder to get."
+          }
+        ],
+        "request_body": null,
+        "response": "ListHierarchyResult",
+        "example": "closebot hierarchy get-hierarchy-2 --id <uuid>"
+      },
+      "put-hierarchy": {
+        "method": "PUT",
+        "path": "/hierarchy/{id}",
+        "summary": "Update a folder",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the folder to update."
+          }
+        ],
+        "request_body": "HierarchyInput",
+        "response": null,
+        "example": "closebot hierarchy put-hierarchy --id <uuid>"
+      }
+    },
+    "lead": {
+      "get-ai-toggle": {
+        "method": "GET",
+        "path": "/lead/{leadId}/ai-toggle",
+        "summary": "",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "LeadAiToggleDto",
+        "example": "closebot lead get-ai-toggle"
+      },
+      "put-ai-toggle": {
+        "method": "PUT",
+        "path": "/lead/{leadId}/ai-toggle",
+        "summary": "",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "LeadAiToggleUpdateDto",
+        "response": "LeadAiToggleDto",
+        "example": "closebot lead put-ai-toggle"
+      },
+      "delete-lead": {
+        "method": "DELETE",
+        "path": "/lead/{leadId}",
+        "summary": "Delete a lead",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the lead to delete."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot lead delete-lead"
+      },
+      "get-lead": {
+        "method": "GET",
+        "path": "/lead/{leadId}",
+        "summary": "Get a lead",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the lead to get."
+          },
+          {
+            "name": "includeExternal",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "doc": "Include external fields of the lead in the result (fields from the CRM)."
+          }
+        ],
+        "request_body": null,
+        "response": "LeadDto",
+        "example": "closebot lead get-lead"
+      },
+      "put-lead": {
+        "method": "PUT",
+        "path": "/lead/{leadId}",
+        "summary": "Update lead fields",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the lead to update."
+          }
+        ],
+        "request_body": "LeadUpdateDto",
+        "response": null,
+        "example": "closebot lead put-lead"
+      },
+      "get-page-history": {
+        "method": "GET",
+        "path": "/lead/{leadId}/page-history",
+        "summary": "",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "LeadHistoryEventDto",
+        "example": "closebot lead get-page-history"
+      },
+      "get-topics": {
+        "method": "GET",
+        "path": "/lead/{leadId}/topics",
+        "summary": "The topics a lead's conversation has been classified into.",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "LeadTopicDto",
+        "example": "closebot lead get-topics"
+      },
+      "get-lead-2": {
+        "method": "GET",
+        "path": "/lead",
+        "summary": "List leads",
+        "args": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": "The page number."
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": "The page size."
+          },
+          {
+            "name": "sourceId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The source ID."
+          },
+          {
+            "name": "leadId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The lead ID."
+          }
+        ],
+        "request_body": null,
+        "response": "LeadListResultDto",
+        "example": "closebot lead get-lead-2"
+      },
+      "post-note": {
+        "method": "POST",
+        "path": "/lead/{leadId}/note",
+        "summary": "Leave an internal note on a conversation. Notes are not messages: they\nare never sent to the contact and are only included in the AI's context\nwhen marked AiVisible.",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "CreateNoteInputDto",
+        "response": "NoteResultDto",
+        "example": "closebot lead post-note"
+      },
+      "patch-note": {
+        "method": "PATCH",
+        "path": "/lead/{leadId}/note/{noteId}",
+        "summary": "Update an internal note's body and/or AI visibility.",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "UpdateNoteInputDto",
+        "response": "NoteResultDto",
+        "example": "closebot lead patch-note"
+      },
+      "delete-note": {
+        "method": "DELETE",
+        "path": "/lead/{leadId}/note/{noteId}",
+        "summary": "Delete an internal note. Only the note's author may delete it.",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot lead delete-note"
+      },
+      "post-scheduled-message": {
+        "method": "POST",
+        "path": "/lead/{leadId}/scheduled-message",
+        "summary": "Schedule a message to a lead for a future time \u2014 either a manually\ntyped message or one generated at send time by the conversation's\nlast-responding AI agent.",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "CreateScheduledMessageInputDto",
+        "response": "ScheduledMessageDto",
+        "example": "closebot lead post-scheduled-message"
+      },
+      "get-scheduled-message": {
+        "method": "GET",
+        "path": "/lead/{leadId}/scheduled-message",
+        "summary": "List a lead's scheduled messages: everything pending, plus recent\nfailures so they stay visible in the conversation.",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "ScheduledMessageDto",
+        "example": "closebot lead get-scheduled-message"
+      },
+      "patch-scheduled-message": {
+        "method": "PATCH",
+        "path": "/lead/{leadId}/scheduled-message/{scheduledMessageId}",
+        "summary": "Update a pending scheduled message's time, body (manual only), or\ncancel-on-reply flag. Creator or team members only.",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "scheduledMessageId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "UpdateScheduledMessageInputDto",
+        "response": "ScheduledMessageDto",
+        "example": "closebot lead patch-scheduled-message"
+      },
+      "delete-scheduled-message": {
+        "method": "DELETE",
+        "path": "/lead/{leadId}/scheduled-message/{scheduledMessageId}",
+        "summary": "Cancel a pending scheduled message, or dismiss a failed one. Creator\nor team members only. The row is kept (status \"canceled\") for\nauditability; a dismissed failure keeps its original StatusReason.",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "scheduledMessageId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot lead delete-scheduled-message"
+      },
+      "post-search": {
+        "method": "POST",
+        "path": "/lead/search",
+        "summary": "Search leads",
+        "args": [],
+        "request_body": "SearchQueryInput",
+        "response": "SearchLeadResultDto",
+        "example": "closebot lead post-search"
+      },
+      "post-send-message": {
+        "method": "POST",
+        "path": "/lead/{leadId}/send-message",
+        "summary": "Send a message to a lead",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "SendMessageInputDto",
+        "response": "SendMessageResultDto",
+        "example": "closebot lead post-send-message"
+      },
+      "post-typing": {
+        "method": "POST",
+        "path": "/lead/{leadId}/typing",
+        "summary": "Broadcast human typing state to live subscribers for a lead.",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "LeadTypingInputDto",
+        "response": null,
+        "example": "closebot lead post-typing"
+      },
+      "put-instance": {
+        "method": "PUT",
+        "path": "/lead/{leadId}/instance/{botId}",
+        "summary": "Update a lead instance",
+        "args": [
+          {
+            "name": "leadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the lead to update."
+          },
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the bot to update."
+          }
+        ],
+        "request_body": "InstanceUpdateDto",
+        "response": null,
+        "example": "closebot lead put-instance --id <uuid>"
+      }
+    },
+    "leaderboard": {
+      "get-board": {
+        "method": "GET",
+        "path": "/leaderboard/board",
+        "summary": "One leaderboard: the leaders, the caller's neighbourhood, and where the caller stands.",
+        "args": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "\"source\" ranks individual sources, \"agency\" ranks whole accounts."
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "A key from GET /leaderboard/metrics."
+          },
+          {
+            "name": "compare",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Who to rank against: \"all\" (default), or \"industry\" for the subject's own vertical."
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "\"current\" (default) or \"previous\"."
+          },
+          {
+            "name": "entityId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Which of the caller's own entities Closebot.Api.Controllers.LeaderboardController.GetBoardResponse.Me,"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": "How many leaders to return. 1-10, default 10."
+          },
+          {
+            "name": "around",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": "How many neighbours either side of the caller. 0-5, default 5."
+          }
+        ],
+        "request_body": null,
+        "response": "GetBoardResponse",
+        "example": "closebot leaderboard get-board"
+      },
+      "get-profile": {
+        "method": "GET",
+        "path": "/leaderboard/profile",
+        "summary": "",
+        "args": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "entityId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "compare",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "GetProfileResponse",
+        "example": "closebot leaderboard get-profile"
+      },
+      "get-metrics": {
+        "method": "GET",
+        "path": "/leaderboard/metrics",
+        "summary": "The metrics a board can be ranked by. Clients should build their columns from this rather\nthan hardcoding a list, so changing the headline set needs no frontend deploy.",
+        "args": [],
+        "request_body": null,
+        "response": "LeaderboardMetricDto",
+        "example": "closebot leaderboard get-metrics"
+      }
+    },
+    "library": {
+      "post-source": {
+        "method": "POST",
+        "path": "/library/files/{fileId}/source/{sourceId}",
+        "summary": "Attach a file to a source",
+        "args": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the file to attach."
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the source to attach the file to."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot library post-source"
+      },
+      "delete-source": {
+        "method": "DELETE",
+        "path": "/library/files/{fileId}/source/{sourceId}",
+        "summary": "Detach a file from a source",
+        "args": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the file to detach."
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the source to detach the file from."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot library delete-source"
+      },
+      "delete-files": {
+        "method": "DELETE",
+        "path": "/library/files/{fileId}",
+        "summary": "Delete a file",
+        "args": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the file to delete."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot library delete-files"
+      },
+      "get-files": {
+        "method": "GET",
+        "path": "/library/files/{fileId}",
+        "summary": "Get a file metadata",
+        "args": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the file to get."
+          }
+        ],
+        "request_body": null,
+        "response": "FileDto",
+        "example": "closebot library get-files"
+      },
+      "put-files": {
+        "method": "PUT",
+        "path": "/library/files/{fileId}",
+        "summary": "Replace file content",
+        "args": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the file to update."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot library put-files"
+      },
+      "post-connections": {
+        "method": "POST",
+        "path": "/library/external/{provider}/connections",
+        "summary": "",
+        "args": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "ExternalConnectInput",
+        "response": "ExternalConnectionDto",
+        "example": "closebot library post-connections"
+      },
+      "get-connections": {
+        "method": "GET",
+        "path": "/library/external/{provider}/connections",
+        "summary": "",
+        "args": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "ExternalConnectionDto",
+        "example": "closebot library get-connections"
+      },
+      "get-connectable-items": {
+        "method": "GET",
+        "path": "/library/external/{provider}/connections/{connectionId}/connectable-items",
+        "summary": "",
+        "args": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "ExternalConnectableItemDto",
+        "example": "closebot library get-connectable-items"
+      },
+      "post-resources": {
+        "method": "POST",
+        "path": "/library/external/{provider}/connections/{connectionId}/resources",
+        "summary": "",
+        "args": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "ExternalSyncInput",
+        "response": "ExternalResourceSyncDto",
+        "example": "closebot library post-resources"
+      },
+      "get-resources": {
+        "method": "GET",
+        "path": "/library/external/{provider}/resources",
+        "summary": "",
+        "args": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "ExternalResourceSyncDto",
+        "example": "closebot library get-resources"
+      },
+      "get-items": {
+        "method": "GET",
+        "path": "/library/external/{provider}/resources/{resourceId}/items",
+        "summary": "",
+        "args": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "resourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "ExternalResourceItemSyncDto",
+        "example": "closebot library get-items"
+      },
+      "delete-resources": {
+        "method": "DELETE",
+        "path": "/library/external/{provider}/resources/{resourceId}",
+        "summary": "",
+        "args": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "resourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot library delete-resources"
+      },
+      "get-scrape-pages": {
+        "method": "GET",
+        "path": "/library/files/{fileId}/scrape-pages",
+        "summary": "Get the scrape pages for a file",
+        "args": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the file to get the scrape pages for."
+          }
+        ],
+        "request_body": null,
+        "response": "WebscrapePageDto",
+        "example": "closebot library get-scrape-pages"
+      },
+      "put-scrape-pages": {
+        "method": "PUT",
+        "path": "/library/files/{fileId}/scrape-pages",
+        "summary": "Update the scrape pages for a file",
+        "args": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the file to update the scrape pages for."
+          }
+        ],
+        "request_body": "WebscrapePageUpdateDto",
+        "response": null,
+        "example": "closebot library put-scrape-pages"
+      },
+      "get-files-2": {
+        "method": "GET",
+        "path": "/library/files",
+        "summary": "List files",
+        "args": [],
+        "request_body": null,
+        "response": "FileDto",
+        "example": "closebot library get-files-2"
+      },
+      "post-files": {
+        "method": "POST",
+        "path": "/library/files",
+        "summary": "Upload a file",
+        "args": [],
+        "request_body": null,
+        "response": null,
+        "example": "closebot library post-files"
+      },
+      "get-preview": {
+        "method": "GET",
+        "path": "/library/files/{fileId}/preview",
+        "summary": "",
+        "args": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "FilePreviewDto",
+        "example": "closebot library get-preview"
+      },
+      "post-webscrape": {
+        "method": "POST",
+        "path": "/library/webscrape",
+        "summary": "Create a Web-Scrape file",
+        "args": [],
+        "request_body": "UploadWebscrapeToSourceInput",
+        "response": null,
+        "example": "closebot library post-webscrape"
+      },
+      "get-view": {
+        "method": "GET",
+        "path": "/library/files/{fileId}/view",
+        "summary": "Get file content",
+        "args": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the file to view."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot library get-view"
+      }
+    },
+    "livedemo": {
+      "post-bot-live-demo": {
+        "method": "POST",
+        "path": "/bot-live-demo/{botId}",
+        "summary": "Create Live Demo",
+        "args": [
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the Bot"
+          }
+        ],
+        "request_body": "LiveDemoCreateDto",
+        "response": "LiveDemoDto",
+        "example": "closebot livedemo post-bot-live-demo --id <uuid>"
+      },
+      "get-bot-live-demo": {
+        "method": "GET",
+        "path": "/bot-live-demo/{botId}",
+        "summary": "List Live Demos",
+        "args": [
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the Bot"
+          }
+        ],
+        "request_body": null,
+        "response": "LiveDemoDto",
+        "example": "closebot livedemo get-bot-live-demo --id <uuid>"
+      },
+      "post-session": {
+        "method": "POST",
+        "path": "/bot-live-demo/live/{key}/session",
+        "summary": "Create Live Demo Session",
+        "args": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The key of the demo"
+          }
+        ],
+        "request_body": null,
+        "response": "LiveDemoSessionDto",
+        "example": "closebot livedemo post-session"
+      },
+      "delete-bot-live-demo": {
+        "method": "DELETE",
+        "path": "/bot-live-demo/{botId}/{key}",
+        "summary": "Delete Live Demo",
+        "args": [
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the Bot"
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The key of the live demo"
+          }
+        ],
+        "request_body": null,
+        "response": "LiveDemoDto",
+        "example": "closebot livedemo delete-bot-live-demo --id <uuid>"
+      },
+      "put-bot-live-demo": {
+        "method": "PUT",
+        "path": "/bot-live-demo/{botId}/{key}",
+        "summary": "Update Live Demo",
+        "args": [
+          {
+            "name": "botId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the Bot"
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The key of the live demo"
+          }
+        ],
+        "request_body": "LiveDemoCreateDto",
+        "response": "LiveDemoDto",
+        "example": "closebot livedemo put-bot-live-demo --id <uuid>"
+      },
+      "get-live": {
+        "method": "GET",
+        "path": "/bot-live-demo/live/{key}",
+        "summary": "Get Live Demo",
+        "args": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The key of the demo"
+          }
+        ],
+        "request_body": null,
+        "response": "LiveDemoDto",
+        "example": "closebot livedemo get-live"
+      },
+      "get-session": {
+        "method": "GET",
+        "path": "/bot-live-demo/live/{key}/session/{sessionLeadId}",
+        "summary": "Get Live Demo Lead",
+        "args": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The key of the demo"
+          },
+          {
+            "name": "sessionLeadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The session lead ID"
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot livedemo get-session"
+      },
+      "put-session": {
+        "method": "PUT",
+        "path": "/bot-live-demo/live/{key}/session/{sessionLeadId}",
+        "summary": "Update Live Demo Fields",
+        "args": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The key of the demo"
+          },
+          {
+            "name": "sessionLeadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The session lead ID"
+          }
+        ],
+        "request_body": "LeadUpdateDto",
+        "response": null,
+        "example": "closebot livedemo put-session"
+      },
+      "post-message": {
+        "method": "POST",
+        "path": "/bot-live-demo/live/{key}/session/{sessionLeadId}/message",
+        "summary": "Stream Live Demo Messages",
+        "args": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The key of the demo"
+          },
+          {
+            "name": "sessionLeadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The session lead ID"
+          }
+        ],
+        "request_body": "LiveDemoMessageInput",
+        "response": null,
+        "example": "closebot livedemo post-message"
+      },
+      "get-stream": {
+        "method": "GET",
+        "path": "/bot-live-demo/live/{key}/session/{sessionLeadId}/stream",
+        "summary": "Stream Live Demo Messages",
+        "args": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The key of the demo"
+          },
+          {
+            "name": "sessionLeadId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The session lead ID"
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot livedemo get-stream"
+      }
+    },
+    "livemessage": {
+      "send": {
+        "method": "POST",
+        "base": "message",
+        "path": "/message",
+        "summary": "Send a message to a CloseBot conversation",
+        "request_body": "MessagePayload",
+        "args": [
+          {
+            "name": "id",
+            "required": true,
+            "type": "string",
+            "doc": "Contact identifier"
+          },
+          {
+            "name": "message",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "bot",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "name": "model",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "gpt-4",
+              "gpt-4-1106-preview",
+              "text-davinci-003"
+            ]
+          },
+          {
+            "name": "channel",
+            "required": false,
+            "type": "string",
+            "enum": [
+              "Live_Chat",
+              "SMS",
+              "FB",
+              "Email",
+              "IG",
+              "WhatsApp"
+            ]
+          },
+          {
+            "name": "followup",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "is_update",
+            "required": false,
+            "type": "boolean"
+          },
+          {
+            "name": "character_limit",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "name": "extra_prompt",
+            "required": false,
+            "type": "string",
+            "doc": "<=500 chars"
+          },
+          {
+            "name": "delay",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "name": "@rep_name",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "@lead_name",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "example": "closebot live-message send --id <contactId> --message 'Hello'"
+      }
+    },
+    "notification": {
+      "delete-notifications": {
+        "method": "DELETE",
+        "path": "/notifications/{id}",
+        "summary": "Delete a notification",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "NotificationDto",
+        "example": "closebot notification delete-notifications --id <uuid>"
+      },
+      "put-notifications": {
+        "method": "PUT",
+        "path": "/notifications/{id}",
+        "summary": "Update a notification",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the notification to update."
+          }
+        ],
+        "request_body": "NotificationUpdateDto",
+        "response": "NotificationDto",
+        "example": "closebot notification put-notifications --id <uuid>"
+      },
+      "get-forwarding": {
+        "method": "GET",
+        "path": "/notifications/forwarding",
+        "summary": "Get notification forwarding settings",
+        "args": [],
+        "request_body": null,
+        "response": null,
+        "example": "closebot notification get-forwarding"
+      },
+      "put-forwarding": {
+        "method": "PUT",
+        "path": "/notifications/forwarding",
+        "summary": "Update notification forwarding settings",
+        "args": [],
+        "request_body": "NotificationForwardingDto",
+        "response": null,
+        "example": "closebot notification put-forwarding"
+      },
+      "get-notifications": {
+        "method": "GET",
+        "path": "/notifications",
+        "summary": "List notifications",
+        "args": [],
+        "request_body": null,
+        "response": "NotificationDto",
+        "example": "closebot notification get-notifications"
+      }
+    },
+    "persona": {
+      "post-persona": {
+        "method": "POST",
+        "path": "/persona",
+        "summary": "Create a new persona",
+        "args": [],
+        "request_body": "CreatePersonaInput",
+        "response": null,
+        "example": "closebot persona post-persona"
+      },
+      "get-persona": {
+        "method": "GET",
+        "path": "/persona",
+        "summary": "List personas",
+        "args": [],
+        "request_body": null,
+        "response": "PersonaDto",
+        "example": "closebot persona get-persona"
+      },
+      "delete-persona": {
+        "method": "DELETE",
+        "path": "/persona/{id}",
+        "summary": "Delete a persona",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the persona to delete."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot persona delete-persona --id <uuid>"
+      },
+      "get-persona-2": {
+        "method": "GET",
+        "path": "/persona/{id}",
+        "summary": "Get a persona",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the persona to get."
+          }
+        ],
+        "request_body": null,
+        "response": "PersonaDto",
+        "example": "closebot persona get-persona-2 --id <uuid>"
+      },
+      "put-persona": {
+        "method": "PUT",
+        "path": "/persona/{id}",
+        "summary": "Update a persona",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the persona to update."
+          }
+        ],
+        "request_body": "UpdatePersonaInput",
+        "response": "PersonaDto",
+        "example": "closebot persona put-persona --id <uuid>"
+      }
+    },
+    "report": {
+      "post-report": {
+        "method": "POST",
+        "path": "/report",
+        "summary": "",
+        "args": [],
+        "request_body": "CreateReportInput",
+        "response": "ReportDto",
+        "example": "closebot report post-report"
+      },
+      "get-report": {
+        "method": "GET",
+        "path": "/report",
+        "summary": "",
+        "args": [],
+        "request_body": null,
+        "response": "ReportDto",
+        "example": "closebot report get-report"
+      },
+      "delete-report": {
+        "method": "DELETE",
+        "path": "/report/{id}",
+        "summary": "",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot report delete-report --id <uuid>"
+      },
+      "put-report": {
+        "method": "PUT",
+        "path": "/report/{id}",
+        "summary": "",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "UpdateReportInput",
+        "response": null,
+        "example": "closebot report put-report --id <uuid>"
+      },
+      "get-shares": {
+        "method": "GET",
+        "path": "/report/{id}/shares",
+        "summary": "",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "ReportShareDto",
+        "example": "closebot report get-shares --id <uuid>"
+      },
+      "post-shares": {
+        "method": "POST",
+        "path": "/report/{id}/shares",
+        "summary": "",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "ReportSharesInput",
+        "response": "ReportShareDto",
+        "example": "closebot report post-shares --id <uuid>"
+      },
+      "put-shares": {
+        "method": "PUT",
+        "path": "/report/{id}/shares",
+        "summary": "",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "ReportSharesInput",
+        "response": "ReportShareDto",
+        "example": "closebot report put-shares --id <uuid>"
+      },
+      "delete-shares": {
+        "method": "DELETE",
+        "path": "/report/{id}/shares/{accountId}",
+        "summary": "",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot report delete-shares --id <uuid>"
+      }
+    },
+    "smartfaq": {
+      "post-answered-followup": {
+        "method": "POST",
+        "path": "/smart-faq/answered-followup",
+        "summary": "Follow up on answered FAQs",
+        "args": [],
+        "request_body": "AnsweredFAQFollowUpRequest",
+        "response": null,
+        "example": "closebot smartfaq post-answered-followup"
+      },
+      "post-answer": {
+        "method": "POST",
+        "path": "/smart-faq/answer",
+        "summary": "Answer multiple FAQs",
+        "args": [],
+        "request_body": "AnswerMultipleFAQsRequest",
+        "response": "SmartFAQDto",
+        "example": "closebot smartfaq post-answer"
+      },
+      "post-smart-faq": {
+        "method": "POST",
+        "path": "/smart-faq",
+        "summary": "Create a new FAQ",
+        "args": [],
+        "request_body": "CreateSmartFAQRequest",
+        "response": null,
+        "example": "closebot smartfaq post-smart-faq"
+      },
+      "get-smart-faq": {
+        "method": "GET",
+        "path": "/smart-faq",
+        "summary": "List FAQs",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The source ID of the FAQs."
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The state of the FAQs. \"compressed\" or \"uncompressed\"."
+          },
+          {
+            "name": "answered",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "The answered status of the FAQs. \"answered\" or \"unanswered\"."
+          }
+        ],
+        "request_body": null,
+        "response": "SmartFAQDto",
+        "example": "closebot smartfaq get-smart-faq"
+      },
+      "delete-smart-faq": {
+        "method": "DELETE",
+        "path": "/smart-faq/{id}",
+        "summary": "Delete an FAQ",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the FAQ to delete."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot smartfaq delete-smart-faq --id <uuid>"
+      }
+    },
+    "source": {
+      "post-source": {
+        "method": "POST",
+        "path": "/agency/source",
+        "summary": "Add a source",
+        "args": [],
+        "request_body": "AddSourceInput",
+        "response": "SourceDto",
+        "example": "closebot source post-source"
+      },
+      "get-source": {
+        "method": "GET",
+        "path": "/agency/source",
+        "summary": "List sources",
+        "args": [
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": "Size of each page (max 100)"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "doc": "The page number. For example, page 5 with page size of 20 would start at offset 100."
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Search by source name"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "Search by only specific categories (GHL, HubSpot, WebHook, etc)"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "doc": "How results should be ordered. \"+\" or \"-\" prefix to specific ascending or descending."
+          },
+          {
+            "name": "forceTokenRefresh",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "doc": "When true, access token for all returned sources are refreshed."
+          }
+        ],
+        "request_body": null,
+        "response": "SourceDtoPaginated",
+        "example": "closebot source get-source"
+      },
+      "delete-source": {
+        "method": "DELETE",
+        "path": "/agency/source/{id}",
+        "summary": "Delete a source",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot source delete-source --id <uuid>"
+      },
+      "get-a-source": {
+        "method": "GET",
+        "path": "/agency/source/{id}",
+        "summary": "Get a source",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID"
+          }
+        ],
+        "request_body": null,
+        "response": "SourceDto",
+        "example": "closebot source get-a-source --id <uuid>"
+      },
+      "get-owners": {
+        "method": "GET",
+        "path": "/agency/source/{id}/owners",
+        "summary": "List HubSpot owners",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": null,
+        "response": "SourceOwnerDto",
+        "example": "closebot source get-owners --id <uuid>"
+      },
+      "get-calendars": {
+        "method": "GET",
+        "path": "/agency/source/{id}/calendars",
+        "summary": "List source calendars",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": null,
+        "response": "SourceCalendarDto",
+        "example": "closebot source get-calendars --id <uuid>"
+      },
+      "get-channels": {
+        "method": "GET",
+        "path": "/agency/source/{id}/channels",
+        "summary": "List source channels",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": null,
+        "response": "SourceChannelDto",
+        "example": "closebot source get-channels --id <uuid>"
+      },
+      "get-fields": {
+        "method": "GET",
+        "path": "/agency/source/{id}/fields",
+        "summary": "List source fields",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": null,
+        "response": "SourceFieldCollectionDto",
+        "example": "closebot source get-fields --id <uuid>"
+      },
+      "get-tags": {
+        "method": "GET",
+        "path": "/agency/source/{id}/tags",
+        "summary": "List source tags",
+        "args": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": null,
+        "response": "SourceTagDto",
+        "example": "closebot source get-tags --id <uuid>"
+      },
+      "put-source": {
+        "method": "PUT",
+        "path": "/agency/source/{sourceId}",
+        "summary": "Update a source",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": "UpdateSourceInput",
+        "response": "SourceDto",
+        "example": "closebot source put-source"
+      },
+      "get-webhook-integration": {
+        "method": "GET",
+        "path": "/agency/source/{sourceId}/webhook-integration",
+        "summary": "Get the webhook integration configuration for a source",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": null,
+        "response": "WebhookIntegrationDto",
+        "example": "closebot source get-webhook-integration"
+      },
+      "get-events": {
+        "method": "GET",
+        "path": "/agency/source/{sourceId}/webhook-integration/events",
+        "summary": "List captured webhook events",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": null,
+        "response": "CapturedWebhookEventsResult",
+        "example": "closebot source get-events"
+      },
+      "put-contact-fetch": {
+        "method": "PUT",
+        "path": "/agency/source/{sourceId}/webhook-integration/contact-fetch",
+        "summary": "Save the contact fetch configuration",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": "SaveWebhookContactFetchInput",
+        "response": "WebhookIntegrationDto",
+        "example": "closebot source put-contact-fetch"
+      },
+      "put-inbound": {
+        "method": "PUT",
+        "path": "/agency/source/{sourceId}/webhook-integration/inbound",
+        "summary": "Save the inbound webhook mapping",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": "SaveWebhookInboundInput",
+        "response": "WebhookIntegrationDto",
+        "example": "closebot source put-inbound"
+      },
+      "put-outbound": {
+        "method": "PUT",
+        "path": "/agency/source/{sourceId}/webhook-integration/outbound",
+        "summary": "Save the outbound webhook configuration",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The source ID."
+          }
+        ],
+        "request_body": "SaveWebhookOutboundInput",
+        "response": "WebhookIntegrationDto",
+        "example": "closebot source put-outbound"
+      }
+    },
+    "sourcechannel": {
+      "post-custom-channels": {
+        "method": "POST",
+        "path": "/agency/source/{sourceId}/custom-channels",
+        "summary": "",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "CreateSourceChannelInput",
+        "response": "AgencySourceChannelDto",
+        "example": "closebot sourcechannel post-custom-channels"
+      },
+      "get-custom-channels": {
+        "method": "GET",
+        "path": "/agency/source/{sourceId}/custom-channels",
+        "summary": "",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "AgencySourceChannelDto",
+        "example": "closebot sourcechannel get-custom-channels"
+      },
+      "delete-custom-channels": {
+        "method": "DELETE",
+        "path": "/agency/source/{sourceId}/custom-channels/{channelId}",
+        "summary": "",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "channelId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot sourcechannel delete-custom-channels"
+      },
+      "get-custom-channels-2": {
+        "method": "GET",
+        "path": "/agency/source/{sourceId}/custom-channels/{channelId}",
+        "summary": "",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "channelId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": null,
+        "response": "AgencySourceChannelDto",
+        "example": "closebot sourcechannel get-custom-channels-2"
+      },
+      "put-custom-channels": {
+        "method": "PUT",
+        "path": "/agency/source/{sourceId}/custom-channels/{channelId}",
+        "summary": "",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          },
+          {
+            "name": "channelId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": null
+          }
+        ],
+        "request_body": "UpdateSourceChannelInput",
+        "response": "AgencySourceChannelDto",
+        "example": "closebot sourcechannel put-custom-channels"
+      }
+    },
+    "webhook": {
+      "post-event": {
+        "method": "POST",
+        "path": "/webhook/event/{sourceId}",
+        "summary": "Send a webhook event",
+        "args": [
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "doc": "The ID of the WebHook source."
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "example": "closebot webhook post-event"
+      }
+    }
+  }
+}

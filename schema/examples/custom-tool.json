@@ -1,0 +1,593 @@
+[
+  {
+    "name": "GHL Get Services",
+    "description": "Lists all bookable services with id, name, duration, price, and serviceLocationId. Run this first to get the service id and serviceLocationId.",
+    "icon": "IconCalendar",
+    "status": "complete",
+    "wizardStep": 3,
+    "method": "GET",
+    "url": "https://backend.leadconnectorhq.com/calendars/bookings/options?locationId=<LOCATION_ID>&type=service",
+    "headers": [
+      {
+        "id": "0738abd9-119d-466e-a14c-0c7171aea380",
+        "key": "Accept",
+        "value": "application/json"
+      },
+      {
+        "id": "6c6683d9-303f-4500-929c-ade315e2570c",
+        "key": "Authorization",
+        "value": "Bearer $GHL_PIT_TOKEN_REDACTED"
+      }
+    ],
+    "queryParams": [],
+    "bodyType": "none",
+    "jsonBody": "",
+    "formParams": [],
+    "customParameters": [],
+    "testResponse": "{\n  \"services\": [],\n  \"locations\": [],\n  \"serviceCategories\": [],\n  \"traceId\": \"3d8696fa-d410-4b86-98cc-7face08ad9e8\"\n}",
+    "testVariables": [
+      {
+        "fieldKey": "__dynamic_0",
+        "descriptor": ".$traceId",
+        "type": "string",
+        "niceName": "TraceId",
+        "friendlyName": "TraceId",
+        "visibleToAI": true
+      }
+    ],
+    "restrictedFields": [
+      {
+        "fieldKey": "__dynamic_0",
+        "descriptor": ".$traceId",
+        "type": "string",
+        "niceName": "TraceId",
+        "friendlyName": "TraceId",
+        "visibleToAI": true
+      }
+    ],
+    "testValues": {},
+    "isGlobalTool": false,
+    "requestMethod": "GET",
+    "body": "",
+    "parameters": [],
+    "type": "custom_tool_XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+  },
+  {
+    "name": "GHL Get Availability",
+    "description": "Gets open slots for one service. Needs the service id from GHL Get Services. Dates are ISO format like 2026-09-01T00:00:00.000Z. Returns slots with startTime times.",
+    "icon": "IconClock",
+    "status": "complete",
+    "wizardStep": 3,
+    "method": "POST",
+    "url": "https://backend.leadconnectorhq.com/calendars/bookings/availability",
+    "headers": [
+      {
+        "id": "6ba0dc2b-baae-4999-8db7-f64aced83619",
+        "key": "Content-Type",
+        "value": "application/json"
+      },
+      {
+        "id": "421250a5-432f-40b7-819c-e0ce6eb2f035",
+        "key": "Accept",
+        "value": "application/json"
+      },
+      {
+        "id": "14887175-362c-497c-a3f0-9668ddcc0d37",
+        "key": "Authorization",
+        "value": "Bearer $GHL_PIT_TOKEN_REDACTED"
+      }
+    ],
+    "queryParams": [],
+    "bodyType": "json",
+    "jsonBody": "{\"services\": [{\"id\": \"{{service_id}}\"}], \"timezone\": \"{{timezone}}\", \"startDate\": \"{{start_date}}\", \"endDate\": \"{{end_date}}\", \"serviceLocationId\": \"<SERVICE_LOCATION_ID>\", \"subAccountId\": \"<LOCATION_ID>\"}",
+    "formParams": [],
+    "customParameters": [],
+    "testResponse": "{\n  \"slots\": [\n    {\n      \"startTime\": \"2026-09-02T15:30:00.000-05:00\",\n      \"endTime\": \"2026-09-02T16:30:00.000-05:00\",\n      \"services\": [\n        {\n          \"serviceId\": \"<SERVICE_ID>\",\n          \"startTime\": \"2026-09-02T15:30:00.000-05:00\",\n          \"endTime\": \"2026-09-02T16:30:00.000-05:00\",\n          \"staffId\": \"<STAFF_ID>\",\n          \"availableProviders\": [\n            {\n              \"providerId\": \"<STAFF_ID>\",\n              \"price\": 99\n            }\n          ],\n          \"availableResources\": []\n        }\n      ]\n    },\n    {\n      \"startTime\": \"2026-09-02T16:00:00.000-05:00\",\n      \"endTime\": \"2026-09-02T17:00:00.000-05:00\",\n      \"services\": [\n        {\n          \"serviceId\": \"<SERVICE_ID>\",\n          \"startTime\": \"2026-09-02T16:00:00.000-05:00\",\n          \"endTime\": \"2026-09-02T17:00:00.000-05:00\",\n          \"staffId\": \"<STAFF_ID>\",\n          \"availableProviders\": [\n            {\n              \"providerId\": \"<STAFF_ID>\",\n              \"price\": 99\n            }\n          ],\n          \"availableResources\": []\n        }\n      ]\n    }\n  ],\n  \"traceId\": \"77426703-d072-46dc-91c8-a3441da7a83b\"\n}",
+    "testVariables": [
+      {
+        "fieldKey": "__dynamic_0",
+        "descriptor": ".$slots.#0.$startTime",
+        "type": "string",
+        "niceName": "Slots 1 StartTime",
+        "friendlyName": "Slots 1 StartTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_1",
+        "descriptor": ".$slots.#0.$endTime",
+        "type": "string",
+        "niceName": "Slots 1 EndTime",
+        "friendlyName": "Slots 1 EndTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_2",
+        "descriptor": ".$slots.#0.$services.#0.$serviceId",
+        "type": "string",
+        "niceName": "Slots 1 Services 1 ServiceId",
+        "friendlyName": "Slots 1 Services 1 ServiceId",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_3",
+        "descriptor": ".$slots.#0.$services.#0.$startTime",
+        "type": "string",
+        "niceName": "Slots 1 Services 1 StartTime",
+        "friendlyName": "Slots 1 Services 1 StartTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_4",
+        "descriptor": ".$slots.#0.$services.#0.$endTime",
+        "type": "string",
+        "niceName": "Slots 1 Services 1 EndTime",
+        "friendlyName": "Slots 1 Services 1 EndTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_5",
+        "descriptor": ".$slots.#0.$services.#0.$staffId",
+        "type": "string",
+        "niceName": "Slots 1 Services 1 StaffId",
+        "friendlyName": "Slots 1 Services 1 StaffId",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_6",
+        "descriptor": ".$slots.#0.$services.#0.$availableProviders.#0.$providerId",
+        "type": "string",
+        "niceName": "Slots 1 Services 1 AvailableProviders 1 ProviderId",
+        "friendlyName": "Slots 1 Services 1 AvailableProviders 1 ProviderId",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_7",
+        "descriptor": ".$slots.#0.$services.#0.$availableProviders.#0.$price",
+        "type": "number",
+        "niceName": "Slots 1 Services 1 AvailableProviders 1 Price",
+        "friendlyName": "Slots 1 Services 1 AvailableProviders 1 Price",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_8",
+        "descriptor": ".$slots.#1.$startTime",
+        "type": "string",
+        "niceName": "Slots 2 StartTime",
+        "friendlyName": "Slots 2 StartTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_9",
+        "descriptor": ".$slots.#1.$endTime",
+        "type": "string",
+        "niceName": "Slots 2 EndTime",
+        "friendlyName": "Slots 2 EndTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_10",
+        "descriptor": ".$slots.#1.$services.#0.$serviceId",
+        "type": "string",
+        "niceName": "Slots 2 Services 1 ServiceId",
+        "friendlyName": "Slots 2 Services 1 ServiceId",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_11",
+        "descriptor": ".$slots.#1.$services.#0.$startTime",
+        "type": "string",
+        "niceName": "Slots 2 Services 1 StartTime",
+        "friendlyName": "Slots 2 Services 1 StartTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_12",
+        "descriptor": ".$slots.#1.$services.#0.$endTime",
+        "type": "string",
+        "niceName": "Slots 2 Services 1 EndTime",
+        "friendlyName": "Slots 2 Services 1 EndTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_13",
+        "descriptor": ".$slots.#1.$services.#0.$staffId",
+        "type": "string",
+        "niceName": "Slots 2 Services 1 StaffId",
+        "friendlyName": "Slots 2 Services 1 StaffId",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_14",
+        "descriptor": ".$slots.#1.$services.#0.$availableProviders.#0.$providerId",
+        "type": "string",
+        "niceName": "Slots 2 Services 1 AvailableProviders 1 ProviderId",
+        "friendlyName": "Slots 2 Services 1 AvailableProviders 1 ProviderId",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_15",
+        "descriptor": ".$slots.#1.$services.#0.$availableProviders.#0.$price",
+        "type": "number",
+        "niceName": "Slots 2 Services 1 AvailableProviders 1 Price",
+        "friendlyName": "Slots 2 Services 1 AvailableProviders 1 Price",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_16",
+        "descriptor": ".$traceId",
+        "type": "string",
+        "niceName": "TraceId",
+        "friendlyName": "TraceId",
+        "visibleToAI": true
+      }
+    ],
+    "restrictedFields": [
+      {
+        "fieldKey": "__dynamic_0",
+        "descriptor": ".$slots.#0.$startTime",
+        "type": "string",
+        "niceName": "Slots 1 StartTime",
+        "friendlyName": "Slots 1 StartTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_1",
+        "descriptor": ".$slots.#0.$endTime",
+        "type": "string",
+        "niceName": "Slots 1 EndTime",
+        "friendlyName": "Slots 1 EndTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_2",
+        "descriptor": ".$slots.#0.$services.#0.$serviceId",
+        "type": "string",
+        "niceName": "Slots 1 Services 1 ServiceId",
+        "friendlyName": "Slots 1 Services 1 ServiceId",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_3",
+        "descriptor": ".$slots.#0.$services.#0.$startTime",
+        "type": "string",
+        "niceName": "Slots 1 Services 1 StartTime",
+        "friendlyName": "Slots 1 Services 1 StartTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_4",
+        "descriptor": ".$slots.#0.$services.#0.$endTime",
+        "type": "string",
+        "niceName": "Slots 1 Services 1 EndTime",
+        "friendlyName": "Slots 1 Services 1 EndTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_5",
+        "descriptor": ".$slots.#0.$services.#0.$staffId",
+        "type": "string",
+        "niceName": "Slots 1 Services 1 StaffId",
+        "friendlyName": "Slots 1 Services 1 StaffId",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_6",
+        "descriptor": ".$slots.#0.$services.#0.$availableProviders.#0.$providerId",
+        "type": "string",
+        "niceName": "Slots 1 Services 1 AvailableProviders 1 ProviderId",
+        "friendlyName": "Slots 1 Services 1 AvailableProviders 1 ProviderId",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_7",
+        "descriptor": ".$slots.#0.$services.#0.$availableProviders.#0.$price",
+        "type": "number",
+        "niceName": "Slots 1 Services 1 AvailableProviders 1 Price",
+        "friendlyName": "Slots 1 Services 1 AvailableProviders 1 Price",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_8",
+        "descriptor": ".$slots.#1.$startTime",
+        "type": "string",
+        "niceName": "Slots 2 StartTime",
+        "friendlyName": "Slots 2 StartTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_9",
+        "descriptor": ".$slots.#1.$endTime",
+        "type": "string",
+        "niceName": "Slots 2 EndTime",
+        "friendlyName": "Slots 2 EndTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_10",
+        "descriptor": ".$slots.#1.$services.#0.$serviceId",
+        "type": "string",
+        "niceName": "Slots 2 Services 1 ServiceId",
+        "friendlyName": "Slots 2 Services 1 ServiceId",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_11",
+        "descriptor": ".$slots.#1.$services.#0.$startTime",
+        "type": "string",
+        "niceName": "Slots 2 Services 1 StartTime",
+        "friendlyName": "Slots 2 Services 1 StartTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_12",
+        "descriptor": ".$slots.#1.$services.#0.$endTime",
+        "type": "string",
+        "niceName": "Slots 2 Services 1 EndTime",
+        "friendlyName": "Slots 2 Services 1 EndTime",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_13",
+        "descriptor": ".$slots.#1.$services.#0.$staffId",
+        "type": "string",
+        "niceName": "Slots 2 Services 1 StaffId",
+        "friendlyName": "Slots 2 Services 1 StaffId",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_14",
+        "descriptor": ".$slots.#1.$services.#0.$availableProviders.#0.$providerId",
+        "type": "string",
+        "niceName": "Slots 2 Services 1 AvailableProviders 1 ProviderId",
+        "friendlyName": "Slots 2 Services 1 AvailableProviders 1 ProviderId",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_15",
+        "descriptor": ".$slots.#1.$services.#0.$availableProviders.#0.$price",
+        "type": "number",
+        "niceName": "Slots 2 Services 1 AvailableProviders 1 Price",
+        "friendlyName": "Slots 2 Services 1 AvailableProviders 1 Price",
+        "visibleToAI": true
+      },
+      {
+        "fieldKey": "__dynamic_16",
+        "descriptor": ".$traceId",
+        "type": "string",
+        "niceName": "TraceId",
+        "friendlyName": "TraceId",
+        "visibleToAI": true
+      }
+    ],
+    "testValues": {
+      "service_id": "<SERVICE_ID>",
+      "start_date": "2026-09-01T00:00:00.000Z",
+      "end_date": "2026-09-07T00:00:00.000Z",
+      "timezone": "America/New_York"
+    },
+    "isGlobalTool": false,
+    "requestMethod": "POST",
+    "body": "{\"services\": [{\"id\": \"{{service_id}}\"}], \"timezone\": \"{{timezone}}\", \"startDate\": \"{{start_date}}\", \"endDate\": \"{{end_date}}\", \"serviceLocationId\": \"<SERVICE_LOCATION_ID>\", \"subAccountId\": \"<LOCATION_ID>\"}",
+    "parameters": [],
+    "type": "custom_tool_XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+  },
+  {
+    "name": "GHL Book Service",
+    "description": "Books the service at a confirmed slot time. Only book after the customer confirms the exact day and time.",
+    "icon": "IconCalendarCheck",
+    "status": "complete",
+    "wizardStep": 3,
+    "headers": [
+      {
+        "id": "592a4695-a61b-45e5-91d8-6e52affa9ccc",
+        "key": "Content-Type",
+        "value": "application/json"
+      },
+      {
+        "id": "99889cde-1e37-4e51-acad-8bf2d1fd948b",
+        "key": "Accept",
+        "value": "application/json"
+      },
+      {
+        "id": "87d96202-376d-4c5b-b87e-035247b1236e",
+        "key": "Version",
+        "value": "v3"
+      },
+      {
+        "id": "f3e92ca8-adec-4d41-b91d-32e2b2fca264",
+        "key": "Authorization",
+        "value": "Bearer $GHL_PIT_TOKEN_REDACTED"
+      }
+    ],
+    "queryParams": [],
+    "bodyType": "json",
+    "jsonBody": "{\"locationId\": \"<LOCATION_ID>\", \"contactId\": \"{{contact.id}}\", \"startTime\": \"{{start_time}}\", \"endTime\": \"{{end_time}}\", \"timezone\": \"{{timezone}}\", \"services\": [{\"id\": \"{{service_id}}\"}], \"title\": \"{{service_title}}\", \"status\": \"confirmed\"}",
+    "formParams": [],
+    "customParameters": [],
+    "testResponse": "{\"bookingId\": \"bk_123\", \"status\": \"confirmed\"}",
+    "testVariables": [
+      {
+        "fieldKey": "bookingId",
+        "descriptor": ".$bookingId",
+        "type": "string",
+        "niceName": "Booking Id",
+        "friendlyName": "Booking Id",
+        "visibleToAI": true
+      }
+    ],
+    "restrictedFields": [],
+    "testValues": {
+      "service_id": "<SERVICE_ID>",
+      "start_time": "2026-09-02T15:30:00.000-05:00",
+      "end_time": "2026-09-02T16:30:00.000-05:00",
+      "timezone": "America/New_York",
+      "service_title": "Example Service"
+    },
+    "isGlobalTool": false,
+    "method": "POST",
+    "url": "https://services.leadconnectorhq.com/calendars/services/bookings",
+    "requestMethod": "POST",
+    "body": "{\"locationId\": \"<LOCATION_ID>\", \"contactId\": \"{{contact.id}}\", \"startTime\": \"{{start_time}}\", \"endTime\": \"{{end_time}}\", \"timezone\": \"{{timezone}}\", \"services\": [{\"id\": \"{{service_id}}\"}], \"title\": \"{{service_title}}\", \"status\": \"confirmed\"}",
+    "parameters": [],
+    "type": "custom_tool_XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+  },
+  {
+    "name": "GHL Find Booking",
+    "description": "Finds the customer's bookings in a date window. Returns bookingId, title, startTime, status.",
+    "icon": "IconSearch",
+    "status": "complete",
+    "wizardStep": 1,
+    "method": "GET",
+    "url": "https://services.leadconnectorhq.com/calendars/services/bookings?locationId=<LOCATION_ID>&start_time={{start_time}}&end_time={{end_time}}",
+    "headers": [
+      {
+        "id": "d1333675-a808-4bda-9653-c427566048da",
+        "key": "Accept",
+        "value": "application/json"
+      },
+      {
+        "id": "42b72ac7-288b-483d-8a53-18894484cb10",
+        "key": "Version",
+        "value": "v3"
+      },
+      {
+        "id": "799b2a5a-8f1d-4686-aebf-3d0302daf8b5",
+        "key": "Authorization",
+        "value": "Bearer $GHL_PIT_TOKEN_REDACTED"
+      }
+    ],
+    "queryParams": [],
+    "bodyType": "none",
+    "jsonBody": "",
+    "formParams": [],
+    "customParameters": [],
+    "testResponse": "{\"message\":[\"property start_time should not exist\",\"property end_time should not exist\",\"startTime should not be empty\",\"startTime must be a string\",\"Start time and end time are required\",\"endTime should not be empty\",\"endTime must be a string\"],\"error\":\"Unprocessable Entity\",\"statusCode\":422,\"traceId\":\"84e74816-41ed-4435-bf87-c916a1208cf9\"}",
+    "testVariables": [],
+    "restrictedFields": [],
+    "testValues": {
+      "start_time": "1788238800000",
+      "end_time": "1788325200000"
+    },
+    "isGlobalTool": false,
+    "requestMethod": "GET",
+    "body": "",
+    "parameters": [],
+    "type": "custom_tool_XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+  },
+  {
+    "name": "GHL Reschedule Booking",
+    "description": "Moves a booking to a new slot time. Confirm the new time with the customer first.",
+    "icon": "IconRefresh",
+    "status": "complete",
+    "wizardStep": 3,
+    "headers": [
+      {
+        "id": "f3a5d546-e6cd-4e15-8570-3ad638bd9724",
+        "key": "Content-Type",
+        "value": "application/json"
+      },
+      {
+        "id": "b5f1c3ce-70c3-4890-9fa5-47f332ca9af6",
+        "key": "Accept",
+        "value": "application/json"
+      },
+      {
+        "id": "7456c9d3-f619-441d-a2c3-4560c905e93f",
+        "key": "Version",
+        "value": "v3"
+      },
+      {
+        "id": "626e3106-f194-48fd-946b-47ad468e2d78",
+        "key": "Authorization",
+        "value": "Bearer $GHL_PIT_TOKEN_REDACTED"
+      }
+    ],
+    "queryParams": [],
+    "bodyType": "json",
+    "jsonBody": "{\"startTime\": \"{{new_start_time}}\", \"endTime\": \"{{new_end_time}}\", \"timezone\": \"{{timezone}}\", \"status\": \"confirmed\"}",
+    "formParams": [],
+    "customParameters": [],
+    "testResponse": "{\"bookingId\": \"bk_123\", \"status\": \"confirmed\"}",
+    "testVariables": [],
+    "restrictedFields": [],
+    "testValues": {
+      "booking_id": "bk_123",
+      "new_start_time": "2026-09-03T15:30:00.000-05:00",
+      "new_end_time": "2026-09-03T16:30:00.000-05:00",
+      "timezone": "America/New_York"
+    },
+    "isGlobalTool": false,
+    "method": "PUT",
+    "url": "https://services.leadconnectorhq.com/calendars/services/bookings/{{booking_id}}",
+    "requestMethod": "PUT",
+    "body": "{\"startTime\": \"{{new_start_time}}\", \"endTime\": \"{{new_end_time}}\", \"timezone\": \"{{timezone}}\", \"status\": \"confirmed\"}",
+    "parameters": [],
+    "type": "custom_tool_XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+  },
+  {
+    "name": "GHL Cancel Booking",
+    "description": "Cancels a booking. Offer to reschedule first if they just need a different time.",
+    "icon": "IconClose",
+    "status": "complete",
+    "wizardStep": 2,
+    "method": "DELETE",
+    "url": "https://services.leadconnectorhq.com/calendars/services/bookings/{{booking_id}}",
+    "headers": [
+      {
+        "id": "5571b433-e29a-4b9b-9df4-bb57083acc7f",
+        "key": "Accept",
+        "value": "application/json"
+      },
+      {
+        "id": "96815f48-804c-43d9-893e-5dbd544f541f",
+        "key": "Version",
+        "value": "v3"
+      },
+      {
+        "id": "5474bd85-9f7d-4e83-86fb-170147177080",
+        "key": "Authorization",
+        "value": "Bearer $GHL_PIT_TOKEN_REDACTED"
+      }
+    ],
+    "queryParams": [],
+    "bodyType": "none",
+    "jsonBody": "",
+    "formParams": [],
+    "customParameters": [],
+    "testResponse": "{\"statusCode\":404,\"message\":\"Please provide a valid service booking ID\"}",
+    "testVariables": [],
+    "restrictedFields": [],
+    "testValues": {
+      "booking_id": "<SERVICE_ID>"
+    },
+    "isGlobalTool": false,
+    "requestMethod": "DELETE",
+    "body": "",
+    "parameters": [],
+    "type": "custom_tool_XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+  },
+  {
+    "name": "check_availability",
+    "description": "Get real bookable appointment times for a service. Call this before offering any time. Only offer times this tool returned, and use the start value exactly as returned when booking.",
+    "icon": "IconCheck",
+    "status": "draft",
+    "wizardStep": 1,
+    "method": "GET",
+    "url": "https://your-bridge.example.com/availability",
+    "headers": [],
+    "queryParams": [],
+    "bodyType": "none",
+    "jsonBody": "",
+    "formParams": [],
+    "customParameters": [],
+    "testResponse": null,
+    "testVariables": [],
+    "restrictedFields": [],
+    "testValues": {},
+    "requestMethod": "GET",
+    "body": "",
+    "isGlobalTool": false,
+    "parameters": [],
+    "type": "custom_tool_XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+  }
+]

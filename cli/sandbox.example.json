@@ -1,0 +1,13 @@
+{
+  "note": "Write-mode allowlist. cb refuses any write-mode test against an id not listed here, and refuses to publish any id listed here. SETUP: (1) duplicate one of your bots (e.g. your template bot) and name it clearly, e.g. 'SANDBOX - do not publish'; (2) attach it to a webhook source you created for testing that routes to no client; (3) put the bot id in bots[] and the source id in sources[] + sourceId; (4) copy this file to cli/sandbox.json (gitignored — never commit your ids). Never publish the sandbox bot.",
+  "bots": [
+    "bot_SANDBOXXXXXXXXXX"
+  ],
+  "sources": [
+    "src_XXXXXXXXXXXXXXXX"
+  ],
+  "sourceId": "src_XXXXXXXXXXXXXXXX",
+  "sourceNote": "test webhook source that routes to no client — attached so KB paths can be live-tested",
+  "kbDir": "cli/sandbox-kb",
+  "testSessionMimic": "PUT testSession/{leadId} {mimicSourceId: sourceId} before the first message, or source variables + KB are invisible"
+}

@@ -1,0 +1,18 @@
+{
+  "_request": {
+    "scrapeUrl": "https://example.com",
+    "maxBreadth": 1,
+    "maxDepth": 1
+  },
+  "_response": {
+    "message": "Webscrape uploaded successfully",
+    "id": "file_XXXXXXXXXXXXXXXX",
+    "totalSize": 528
+  },
+  "_notes": [
+    "fileType in subsequent GET will be 'webscrape' (not 'File')",
+    "fileSize starts at 0, estimatedFileSize is the actual scraped bytes",
+    "GET /library/files/{id}/scrape-pages returns [{ url, enabled }]",
+    "PUT /library/files/{id}/scrape-pages with { pages: [{url, enabled:false}] } toggles individual pages"
+  ]
+}

@@ -1,0 +1,17 @@
+# Hours and visits — [CB-SANDBOX] Acme Med Spa (fictional test clinic)
+
+## READ FIRST
+- Hours: Monday to Friday 9:00am–6:00pm. Saturday 10:00am–3:00pm. Closed Sunday.
+- Walk-ins: yes, walk-ins are welcome during open hours. Booking ahead is recommended so a nurse is ready for you.
+- Holidays: closed on major US holidays.
+
+## FAQ Quick Reference
+Q: What are your hours?
+A: Monday–Friday 9am–6pm, Saturday 10am–3pm, closed Sunday.
+Q: Do you take walk-ins?
+A: Yes — walk-ins are welcome during open hours; booking ahead is recommended.
+Q: Are you open on weekends?
+A: Saturday 10am–3pm only. Closed Sunday.
+
+## Rules for the assistant
+- State the hours plainly and immediately when asked. Never say the team will confirm hours.

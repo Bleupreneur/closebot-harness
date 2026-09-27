@@ -1,0 +1,11 @@
+[
+  {
+    "id": "faq_XXXXXXXXXXXXXXXX",
+    "agencyId": "agn_XXXXXXXXXXXXXXXX",
+    "sourceId": "src_XXXXXXXXXXXXXXXX",
+    "question": "What are your hours?",
+    "answer": "Monday-Friday 9am-5pm PT.",
+    "leadIds": [],
+    "state": 1
+  }
+]

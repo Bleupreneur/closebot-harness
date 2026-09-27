@@ -1,0 +1,57 @@
+closebot-harness
+Copyright (c) 2026 Bleupreneur
+
+This product is an UNOFFICIAL, community-built toolkit. It is not affiliated
+with, endorsed by, or sponsored by CloseBot Inc.
+
+Trademarks and ownership
+------------------------
+CloseBot, CloseBot.ai and related product names and logos are trademarks or
+property of CloseBot Inc. They are used here only to identify the service
+this toolkit interoperates with. All CloseBot APIs, endpoints, the CloseBot
+OpenAPI specification and the CloseBot product belong to CloseBot Inc.
+
+Use of the CloseBot API
+-----------------------
+Using this toolkit requires your own CloseBot account and your own API key.
+Your use of the CloseBot service and API is governed by CloseBot's Terms of
+Service: https://closebot.com/terms-of-service/
+Nothing in this repository grants any right to use the CloseBot service.
+
+What belongs to CloseBot (not covered by the MIT license)
+---------------------------------------------------------
+The CloseBot API, its endpoints and its data formats belong to CloseBot Inc.
+These files are CloseBot's API specification or its API output, fetched from
+CloseBot's public endpoints (spec: https://megastream25-api.closebot.com/swagger/v1/swagger.json).
+They are included only so the toolkit can talk to the API, and they are not
+covered by the MIT grant in LICENSE:
+
+  - schema/openapi.json, schema/openapi.yaml (CloseBot's spec)
+  - schema/node-descriptors.json (output of GET /bot/nodeDescriptors)
+  - Files generated mechanically from that spec: schema/endpoints.index.json,
+    docs/endpoints/*.md, cli/closebot-cli.spec.json, cli/closebot-cli.spec.yaml
+  - schema/examples/*.json (sample CloseBot API responses, lightly annotated)
+
+Run `cli/cb spec refresh` to re-pull the specification directly from CloseBot.
+
+This repository does not reproduce CloseBot website or help-center content.
+For product documentation, see CloseBot's own sources:
+  - https://docs.closebot.com
+  - https://developers.closebot.com
+
+What this project built (covered by the MIT license)
+----------------------------------------------------
+Everything else is original work by the copyright holder in LICENSE: the
+system that turns CloseBot's API into something agents can operate. That
+includes:
+
+  - the `cb` CLI (cli/cb, cli/lib), its safety tiers, and cb init/doctor/map
+  - the agent skills (skills/), playbooks, workflows and hooks
+  - the build and generation tooling (scripts/)
+  - the hand-written Live Message spec (schema/live-message.json) and the
+    live-verification record (schema/probed.json)
+  - the guides, gotchas, safety model and agent instructions (README, CLAUDE.md,
+    AGENTS.md, GETTING-STARTED, docs/*.md, GOTCHAS.md)
+
+These describe how CloseBot's API works, but they are this project's own
+writing and code. They do not grant any right to use the CloseBot service.

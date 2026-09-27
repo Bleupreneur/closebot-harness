@@ -1,0 +1,15 @@
+{
+  "name": "closebot-harness",
+  "description": "Unofficial CloseBot harness for Claude Code (not affiliated with CloseBot).",
+  "owner": {
+    "name": "Bleupreneur",
+    "url": "https://github.com/Bleupreneur"
+  },
+  "plugins": [
+    {
+      "name": "closebot-harness",
+      "source": "./",
+      "description": "CloseBot expert in any project: 17 skills, the `cb` CLI on PATH, and the CloseBot docs MCP server."
+    }
+  ]
+}

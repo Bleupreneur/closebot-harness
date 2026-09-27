@@ -1,0 +1,24 @@
+{
+  "_request_note": "POST /bot/{id}/saveTools — body is a RAW JSON ARRAY, not an object. OpenAPI spec mislabels this. Sending {\"tools\":[...]} returns 400.",
+  "_request": [
+    { "type": "SmartFAQ", "enabled": true,  "options": {} },
+    { "type": "Email",    "enabled": true,  "options": { "AdditionalPrompt": "Be concise." } },
+    { "type": "SummarizeConversation", "enabled": false, "options": { "OutputVariable": null } },
+    { "type": "TranscribeConversation", "enabled": false, "options": { "OutputVariable": null } }
+  ],
+  "_response_note": "Returns full BotToolDto[] with generated id + internal $type discriminator",
+  "_response": [
+    {
+      "id": "bottool_XXXXXXXXXXXXXXXX",
+      "type": "SmartFAQ",
+      "enabled": true,
+      "options": { "$type": "smart_faq" }
+    },
+    {
+      "id": "bottool_XXXXXXXXXXXXXXXY",
+      "type": "Email",
+      "enabled": true,
+      "options": { "$type": "email_followup", "AdditionalPrompt": "Be concise." }
+    }
+  ]
+}

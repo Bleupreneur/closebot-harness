@@ -1,0 +1,141 @@
+# CLI Codegen
+
+How to compile `closebot-cli.spec.yaml` into a runnable CLI. Two reference paths.
+
+## Option A — Node (commander.js)
+
+Minimal scaffold:
+
+```js
+// closebot.mjs
+import { program } from 'commander';
+import { readFileSync } from 'node:fs';
+import yaml from 'js-yaml';
+
+const spec = yaml.load(readFileSync(new URL('./closebot-cli.spec.yaml', import.meta.url)));
+const { auth, base_urls } = spec;
+
+program.name(spec.name).version(spec.version).description(spec.description);
+
+const KEY = () => process.env[auth.env];
+if (!KEY()) console.warn(`[warn] ${auth.env} not set`);
+
+for (const [groupName, commands] of Object.entries(spec.commands)) {
+  const group = program.command(groupName);
+  for (const [cmdName, cmd] of Object.entries(commands)) {
+    const c = group.command(cmdName).description(cmd.summary || '');
+    for (const a of cmd.args || []) {
+      const flag = `--${a.name} <value>`;
+      a.required ? c.requiredOption(flag, a.doc || '') : c.option(flag, a.doc || '');
+    }
+    c.option('--json', 'raw JSON output');
+    c.option('--dry-run', 'print request without sending');
+    c.action(async (opts) => {
+      const base = base_urls[cmd.base || 'rest'];
+      let path = cmd.path;
+      const query = new URLSearchParams();
+      const body = {};
+      for (const a of cmd.args || []) {
+        const v = opts[a.name];
+        if (v === undefined) continue;
+        if (path.includes(`{${a.name}}`)) path = path.replace(`{${a.name}}`, encodeURIComponent(v));
+        else if (a.in === 'query') query.set(a.name, v);
+        else body[a.name] = v;
+      }
+      const url = `${base}${path}${query.toString() ? `?${query}` : ''}`;
+      const init = {
+        method: cmd.method,
+        headers: { [auth.header]: KEY(), 'Content-Type': 'application/json' },
+        body: cmd.method === 'GET' ? undefined : JSON.stringify(body),
+      };
+      if (opts.dryRun) return console.log({ url, ...init, body: init.body && JSON.parse(init.body) });
+      const res = await fetch(url, init);
+      const text = await res.text();
+      console.log(opts.json ? text : `${res.status}\n${text}`);
+    });
+  }
+}
+
+program.parse();
+```
+
+Install + run:
+
+```bash
+npm i commander js-yaml
+node closebot.mjs bot list
+node closebot.mjs live-message send --id contact_abc --message "Hi"
+```
+
+## Option B — Python (click)
+
+```python
+# closebot.py
+import os, sys, json, urllib.parse, urllib.request
+import click, yaml
+
+SPEC = yaml.safe_load(open(os.path.join(os.path.dirname(__file__), "closebot-cli.spec.yaml")))
+KEY_ENV = SPEC["auth"]["env"]
+HEADER = SPEC["auth"]["header"]
+BASES = SPEC["base_urls"]
+
+@click.group()
+def cli(): pass
+
+def call(method, base, path, query, body, dry):
+    url = f"{base}{path}"
+    if query: url += "?" + urllib.parse.urlencode(query)
+    headers = {HEADER: os.environ.get(KEY_ENV, ""), "Content-Type": "application/json"}
+    data = json.dumps(body).encode() if body and method != "GET" else None
+    if dry:
+        click.echo(json.dumps({"method": method, "url": url, "headers": headers, "body": body}, indent=2))
+        return
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)
+    try:
+        with urllib.request.urlopen(req) as r: click.echo(r.read().decode())
+    except urllib.error.HTTPError as e:
+        click.echo(f"{e.code}\n{e.read().decode()}", err=True); sys.exit(1)
+
+for group_name, cmds in SPEC["commands"].items():
+    group = click.Group(group_name)
+    cli.add_command(group)
+    for cmd_name, cmd in cmds.items():
+        opts = []
+        for a in cmd.get("args") or []:
+            opts.append(click.Option([f"--{a['name']}"], required=a.get("required", False), help=a.get("doc")))
+        opts += [click.Option(["--dry-run"], is_flag=True), click.Option(["--json"], is_flag=True)]
+        def make_cb(cmd=cmd):
+            def _cb(**kw):
+                base = BASES.get(cmd.get("base") or "rest")
+                path, query, body = cmd["path"], {}, {}
+                for a in cmd.get("args") or []:
+                    v = kw.get(a["name"])
+                    if v is None: continue
+                    if "{"+a["name"]+"}" in path: path = path.replace("{"+a["name"]+"}", str(v))
+                    elif a.get("in") == "query": query[a["name"]] = v
+                    else: body[a["name"]] = v
+                call(cmd["method"], base, path, query, body, kw.get("dry_run"))
+            return _cb
+        group.add_command(click.Command(cmd_name, params=opts, callback=make_cb()))
+
+if __name__ == "__main__": cli()
+```
+
+Install + run:
+
+```bash
+pip install click pyyaml
+python3 closebot.py bot list
+python3 closebot.py live-message send --id contact_abc --message "Hi"
+```
+
+## Which to pick
+
+- **Node** if your stack is JS/TS or you want the lightest install.
+- **Python** if your stack is Python or you want zero deps beyond `click`/`pyyaml`.
+
+Both share the same spec file — switching is cheap.
+
+## Don't fork, regenerate
+
+The spec is regenerated by `scripts/build.py` from `schema/openapi.json`. If CloseBot adds endpoints, re-run the build and your CLI picks them up automatically. Do not maintain a hand-curated CLI alongside the spec — they will drift.

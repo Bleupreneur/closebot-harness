@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "closebot-docs": {
+      "type": "http",
+      "url": "https://developers.closebot.com/mcp"
+    }
+  }
+}
