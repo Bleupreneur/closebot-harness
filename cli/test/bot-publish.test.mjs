@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { summarizeDiff, verifyPublished, extractReplies, pollTestMessages, botCommands } from '../lib/bot.mjs';
+import { summarizeDiff, verifyPublished, extractReplies, sendTestTurn, botCommands } from '../lib/bot.mjs';
 import { tierOf, loadOverrides } from '../lib/spec.mjs';
 
 const BOT_LIB = JSON.stringify(fileURLToPath(new URL('../lib/bot.mjs', import.meta.url)));
@@ -34,42 +34,97 @@ test('testSession delete is exempt from Tier 2', () => {
   assert.equal(tierOf('DELETE', '/bot/{botId}/testSession/{leadId}', loadOverrides()), 1);
 });
 
-test('pollTestMessages reads a stream that closes and extracts its messages', async () => {
+test('sendTestTurn subscribes before POST and collects fast multi-bubble replies', async () => {
   const encoder = new TextEncoder();
+  let streamOpened = false;
+  let controller;
   const fetchImpl = async () => ({
+    ok: true, status: 200,
     body: new ReadableStream({
-      start(controller) {
-        controller.enqueue(encoder.encode('data: {"type":"message-sent","message":"Hi there"}\n\n'));
-        controller.enqueue(encoder.encode('data: {"type":"message-sent","message":"When works?"}\n\n'));
-        controller.close();
+      start(c) {
+        streamOpened = true;
+        controller = c;
+        // Deliberately split a JSON event across network chunks.
+        c.enqueue(encoder.encode('data: {"type":"connec'));
+        c.enqueue(encoder.encode('ted"}\r\n\r\n'));
       },
     }),
   });
-  const sse = await pollTestMessages({ key: 'k' }, 'bot_x', 'lead_x', 5000, fetchImpl);
-  assert.deepEqual(extractReplies(sse), { messages: ['Hi there', 'When works?'], tools: [] });
+  const ctx = { key: 'k', call: async (o) => {
+    assert.equal(streamOpened, true);
+    assert.equal(o.body.leadId, 'lead_x');
+    controller.enqueue(encoder.encode('data: {"type":"message-sent","message":"Hi there"}\n\n'));
+    controller.enqueue(encoder.encode('data: {"type":"tool_use","toolName":"Calendar"}\n\n'));
+    controller.enqueue(encoder.encode('data: {"type":"message-sent","message":"When works?"}\n\n'));
+    return { ok: true, status: 200, data: {} };
+  } };
+  const out = await sendTestTurn(ctx, 'bot_x', 'lead_x', 'hello', 1000, 100, fetchImpl);
+  assert.deepEqual(out, { messages: ['Hi there', 'When works?'], tools: ['Calendar'] });
 });
 
-test('pollTestMessages returns within maxTimeMs when the stream never closes (no hang)', async () => {
-  // Simulates the real long-poll endpoint: headers arrive, the body stays open. The mock
-  // wires the underlying source to the same AbortSignal pollTestMessages creates internally
-  // (surfaced to us via fetchImpl's opts.signal) so the pending read() rejects on abort,
-  // exactly as a real aborted fetch would — proving the bounded-read fix, not just a mock quirk.
+test('sendTestTurn refuses to send when SSE never emits connected', async () => {
   const fetchImpl = async (url, opts) => ({
+    ok: true, status: 200,
     body: new ReadableStream({
       start(controller) {
         opts.signal.addEventListener('abort', () => {
           const e = new Error('aborted'); e.name = 'AbortError';
           controller.error(e);
         }, { once: true });
-        // No further enqueue, no close() — the connection just stays open.
       },
     }),
   });
   const t0 = Date.now();
-  const sse = await pollTestMessages({ key: 'k' }, 'bot_x', 'lead_x', 200, fetchImpl);
+  await assert.rejects(sendTestTurn({ key: 'k', call: async () => { throw new Error('POST should not run'); } }, 'bot_x', 'lead_x', 'hello', 100, 100, fetchImpl), /did not connect/);
   const elapsed = Date.now() - t0;
-  assert.equal(sse, '');
-  assert.ok(elapsed < 2000, `expected a bounded return near 200ms, took ${elapsed}ms`);
+  assert.ok(elapsed < 2000, `expected a bounded return near 100ms, took ${elapsed}ms`);
+});
+
+test('sendTestTurn bounds a connected stream with no reply', async () => {
+  const encoder = new TextEncoder();
+  const fetchImpl = async () => ({ ok: true, status: 200, body: new ReadableStream({ start(c) { c.enqueue(encoder.encode('data: {"type":"connected"}\n\n')); } }) });
+  let sent = false;
+  const out = await sendTestTurn({ key: 'k', call: async () => { sent = true; return { ok: true, status: 200, data: {} }; } }, 'bot_x', 'lead_x', 'hello', 100, 50, fetchImpl);
+  assert.equal(sent, true);
+  assert.deepEqual(out, { messages: [], tools: [] });
+});
+
+test('sendTestTurn resolves with no replies when the stream closes after the send', async () => {
+  const encoder = new TextEncoder();
+  let controller;
+  const fetchImpl = async () => ({ ok: true, status: 200, body: new ReadableStream({ start(c) { controller = c; c.enqueue(encoder.encode('data: {"type":"connected"}\n\n')); } }) });
+  const out = await sendTestTurn({ key: 'k', call: async () => { controller.close(); return { ok: true, status: 200, data: {} }; } }, 'bot_x', 'lead_x', 'hello', 1000, 50, fetchImpl);
+  assert.deepEqual(out, { messages: [], tools: [] });
+});
+
+test('sendTestTurn ignores an empty message-sent event', async () => {
+  const encoder = new TextEncoder();
+  let controller;
+  const fetchImpl = async () => ({ ok: true, status: 200, body: new ReadableStream({ start(c) { controller = c; c.enqueue(encoder.encode('data: {"type":"connected"}\n\n')); } }) });
+  const out = await sendTestTurn({ key: 'k', call: async () => {
+    controller.enqueue(encoder.encode('data: {"type":"message-sent","message":""}\n\n'));
+    controller.enqueue(encoder.encode('data: {"type":"message-sent","message":"Real reply"}\n\n'));
+    return { ok: true, status: 200, data: {} };
+  } }, 'bot_x', 'lead_x', 'hello', 1000, 50, fetchImpl);
+  assert.deepEqual(out.messages, ['Real reply']);
+});
+
+test('sendTestTurn with drainMs does not count a late bubble from the previous turn', async () => {
+  const encoder = new TextEncoder();
+  let controller, sentAt = 0;
+  const fetchImpl = async () => ({ ok: true, status: 200, body: new ReadableStream({ start(c) {
+    controller = c;
+    c.enqueue(encoder.encode('data: {"type":"connected"}\n\n'));
+    // The previous turn's third bubble lands just after this turn subscribes.
+    setTimeout(() => c.enqueue(encoder.encode('data: {"type":"message-sent","message":"old bubble"}\n\n')), 20);
+  } }) });
+  const out = await sendTestTurn({ key: 'k', call: async () => {
+    sentAt = Date.now();
+    controller.enqueue(encoder.encode('data: {"type":"message-sent","message":"new reply"}\n\n'));
+    return { ok: true, status: 200, data: {} };
+  } }, 'bot_x', 'lead_x', 'hello', 2000, 50, fetchImpl, 80);
+  assert.ok(sentAt > 0);
+  assert.deepEqual(out.messages, ['new reply']);
 });
 
 // Report Minor 1 (publish half): cb bot publish --dry-run used to run its pre-flight
@@ -243,7 +298,7 @@ function captureStdout(fn) {
   process.stdout.write = (s) => { out += s; return true; };
   return fn().finally(() => { process.stdout.write = orig; }).then(() => JSON.parse(out));
 }
-const SSE_ONE = 'data: {"type":"message-sent","message":"yo"}\n\n';
+const TURN_ONE = { messages: ['yo'], tools: [] };
 
 test('bot test --lead reuses the given session: no create, no delete, message carries the leadId', async () => {
   const calls = [];
@@ -251,9 +306,11 @@ test('bot test --lead reuses the given session: no create, no delete, message ca
     pos: ['bot_X', 'hello'], flags: { lead: 'lead_OWNED' }, dryRun: false,
     call: async (o) => { calls.push(o); return { ok: true, status: 200, data: {} }; },
   };
-  const printed = await captureStdout(() => botCommands.test(ctx, async () => SSE_ONE));
-  assert.deepEqual(calls.map((c) => `${c.method} ${c.path}`), ['POST /bot/{botId}/testSession/message']);
-  assert.equal(calls[0].body.leadId, 'lead_OWNED');
+  const printed = await captureStdout(() => botCommands.test(ctx, async (_ctx, botId, leadId, msg) => {
+    assert.deepEqual([botId, leadId, msg], ['bot_X', 'lead_OWNED', 'hello']);
+    return TURN_ONE;
+  }));
+  assert.deepEqual(calls, []);
   assert.equal(printed.leadId, 'lead_OWNED');
   assert.equal(printed.session, 'reused');
   assert.deepEqual(printed.replies, ['yo']);
@@ -265,10 +322,93 @@ test('bot test without --lead keeps the ephemeral lifecycle: create, message, de
     pos: ['bot_X', 'hello'], flags: {}, dryRun: false,
     call: async (o) => { calls.push(o); return { ok: true, status: 200, data: o.method === 'POST' && o.path === '/bot/{botId}/testSession' ? { leadId: 'lead_EPH' } : {} }; },
   };
-  const printed = await captureStdout(() => botCommands.test(ctx, async () => SSE_ONE));
+  const printed = await captureStdout(() => botCommands.test(ctx, async () => TURN_ONE));
   assert.deepEqual(calls.map((c) => `${c.method} ${c.path}`), [
-    'POST /bot/{botId}/testSession', 'POST /bot/{botId}/testSession/message', 'DELETE /bot/{botId}/testSession/{leadId}',
+    'POST /bot/{botId}/testSession', 'DELETE /bot/{botId}/testSession/{leadId}',
   ]);
-  assert.equal(calls[2].params.leadId, 'lead_EPH');
+  assert.equal(calls[1].params.leadId, 'lead_EPH');
   assert.equal(printed.session, 'ephemeral');
+});
+
+test('persistent session lifecycle applies source mimic before first turn and leaves cleanup to caller', async () => {
+  const calls = [];
+  const ctx = {
+    pos: ['bot_X'], flags: { source: 'src_REAL' }, dryRun: false,
+    call: async (o) => {
+      calls.push(o);
+      return { ok: true, status: 200, data: o.path === '/bot/{botId}/testSession' ? { leadId: 'lead_PERSIST' } : {} };
+    },
+  };
+  const created = await captureStdout(() => botCommands['session-create'](ctx));
+  assert.equal(created.leadId, 'lead_PERSIST');
+  assert.deepEqual(calls.map(o => `${o.method} ${o.path}`), ['POST /bot/{botId}/testSession', 'PUT /bot/{botId}/testSession/{leadId}']);
+  assert.deepEqual(calls[1].body, { mimicSourceId: 'src_REAL' });
+  const said = await captureStdout(() => botCommands['session-say']({ ...ctx, pos: ['bot_X', 'lead_PERSIST', 'hello'], flags: {} }, async () => TURN_ONE));
+  assert.deepEqual(said.replies, ['yo']);
+  assert.equal(said.status, 'replied');
+  assert.equal(calls.length, 2);
+  const deleted = await captureStdout(() => botCommands['session-delete']({ ...ctx, pos: ['bot_X', 'lead_PERSIST'], flags: {} }));
+  assert.equal(deleted.deleted, true);
+  assert.equal(calls.at(-1).method, 'DELETE');
+});
+
+test('session-create removes the fresh lead when source mimic fails', async () => {
+  const calls = [];
+  const ctx = {
+    pos: ['bot_X'], flags: { source: 'src_X' }, dryRun: false,
+    call: async (o) => {
+      calls.push(o);
+      if (o.method === 'POST') return { ok: true, status: 200, data: { leadId: 'lead_NEW' } };
+      if (o.method === 'PUT') return { ok: false, status: 400, data: { error: 'bad source' } };
+      return { ok: true, status: 200, data: {} };
+    },
+  };
+  await assert.rejects(botCommands['session-create'](ctx), /PUT.*400/);
+  assert.deepEqual(calls.map(o => o.method), ['POST', 'PUT', 'DELETE']);
+  assert.equal(calls[2].params.leadId, 'lead_NEW');
+});
+
+test('session-say prints no-reply JSON and exits 3 after a bounded timeout', () => {
+  const script = `
+    import { botCommands } from ${BOT_LIB};
+    await botCommands['session-say'](
+      {pos:['bot_X','lead_X','hello'],flags:{},dryRun:false},
+      async () => ({messages:[],tools:[]})
+    );
+  `;
+  const r = spawnSync('node', ['--input-type=module', '-e', script], { encoding: 'utf8' });
+  assert.equal(r.status, 3, r.stderr);
+  assert.deepEqual(JSON.parse(r.stdout), {
+    botId: 'bot_X', leadId: 'lead_X', sent: 'hello', replies: [], tools: [], timedOut: true, status: 'no_reply',
+  });
+});
+
+test('bot test with no reply prints no_reply and exits 3, like session-say', () => {
+  const script = `
+    import { botCommands } from ${BOT_LIB};
+    await botCommands.test(
+      {pos:['bot_X','hello'],flags:{lead:'lead_X'},dryRun:false,call:async()=>({ok:true,status:200,data:{}})},
+      async () => ({messages:[],tools:[]})
+    );
+  `;
+  const r = spawnSync('node', ['--input-type=module', '-e', script], { encoding: 'utf8' });
+  assert.equal(r.status, 3, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.deepEqual(out.replies, []);
+  assert.equal(out.status, 'no_reply');
+});
+
+test('session-create blames the persona only when the session status says no_persona', () => {
+  const runCreate = (status) => spawnSync('node', ['--input-type=module', '-e', `
+    import { botCommands } from ${BOT_LIB};
+    await botCommands['session-create']({pos:['bot_X'],flags:{},dryRun:false,
+      call:async(o)=>o.method==='POST'?{ok:false,status:${status === 'no_persona' ? 200 : 401},data:null}:{ok:true,status:200,data:{mostRecentFailureReason:${JSON.stringify(status)}}}});
+  `], { encoding: 'utf8' });
+  const persona = runCreate('no_persona');
+  assert.equal(persona.status, 3);
+  assert.match(persona.stderr, /persona/);
+  const auth = runCreate(null);
+  assert.equal(auth.status, 3);
+  assert.doesNotMatch(auth.stderr, /persona/);
+  assert.match(auth.stderr, /HTTP 401/);
 });

@@ -58,7 +58,10 @@ TEMPLATE_BOT="${CB_TEMPLATE_BOT:-$(jq -r '.templateBot // empty' "$REPO_DIR/cb.c
 [ -n "$TEMPLATE_BOT" ] || TEMPLATE_BOT="$(jq -r '.templateBot // empty' "$CB_CONFIG_DIR/cb.config.json" 2>/dev/null || true)"
 TEMPLATE_REF="${TEMPLATE_BOT:-your template bot — set CB_TEMPLATE_BOT or cb.config.json templateBot}"
 
-H=(-H "X-CB-KEY: ${CLOSEBOT_API_KEY}")
+# Every CloseBot call goes through cbcurl: the key is read by curl from a
+# process-substitution fd (-H @file), never placed on argv where any local user
+# could see it via `ps`. printf is a bash builtin, so no child process sees it either.
+cbcurl() { curl -H @<(printf 'X-CB-KEY: %s\n' "$CLOSEBOT_API_KEY") "$@"; }
 
 # --- temp files: we ALWAYS write API responses to disk and run jq against the
 #     FILE, never `echo "$VAR" | jq`. CloseBot step payloads contain unescaped
@@ -71,7 +74,7 @@ STEPS_F="$TMP/steps.json"
 LIB_F="$TMP/library.json"
 
 # --- 1. fetch bot meta ---
-curl -s "${H[@]}" "$API/bot/$BOT_ID" > "$BOT_F"
+cbcurl -s "$API/bot/$BOT_ID" > "$BOT_F"
 if ! jq -e '.id' "$BOT_F" >/dev/null 2>&1; then
   echo "ERROR: could not fetch bot $BOT_ID (key invalid, bot missing, or spec drift)." >&2
   head -c 400 "$BOT_F" >&2; echo >&2
@@ -96,7 +99,7 @@ fi
 [ -n "$VER" ] && [ "$VER" != "null" ] || { echo "ERROR: could not resolve a version for $BOT_ID" >&2; exit 1; }
 
 # --- 3. fetch steps for that version (botVersion REQUIRED despite OpenAPI) ---
-curl -s "${H[@]}" "$API/bot/$BOT_ID/steps?botVersion=$VER" > "$STEPS_F"
+cbcurl -s "$API/bot/$BOT_ID/steps?botVersion=$VER" > "$STEPS_F"
 if ! jq -e '.nodes' "$STEPS_F" >/dev/null 2>&1; then
   echo "ERROR: could not fetch steps for $BOT_ID @ $VER (botVersion missing/invalid?)." >&2
   head -c 400 "$STEPS_F" >&2; echo >&2
@@ -108,7 +111,7 @@ fi
 #     the whole account list. Attachment is implicit via each file's sources[].id.
 #     There is NO per-file `enabled` flag — `fileStatus` ("indexed" etc.) is the
 #     closest health signal. Field names are fileId/fileName/fileType/fileStatus. ---
-curl -s "${H[@]}" "$API/library/files" > "$LIB_F"
+cbcurl -s "$API/library/files" > "$LIB_F"
 jq -e 'type=="array"' "$LIB_F" >/dev/null 2>&1 || echo '[]' > "$LIB_F"
 
 # --- 5. fetch the account persona list.
@@ -121,7 +124,7 @@ jq -e 'type=="array"' "$LIB_F" >/dev/null 2>&1 || echo '[]' > "$LIB_F"
 #     config MUST come from GET /persona; the embedded copy is only useful for
 #     detecting drift. ---
 PERS_F="$TMP/personas.json"
-curl -s "${H[@]}" "$API/persona" > "$PERS_F"
+cbcurl -s "$API/persona" > "$PERS_F"
 jq -e 'type=="array"' "$PERS_F" >/dev/null 2>&1 || echo '[]' > "$PERS_F"
 
 ############################################################################
@@ -131,7 +134,7 @@ if [ "$JSON_MODE" -eq 1 ]; then
   # Smart-FAQ counts need a per-source GET; collect them into a {srcId: count} map.
   FAQMAP="$TMP/faqmap.json"; echo '{}' > "$FAQMAP"
   for SID in $(jq -r '.sources[]?.id' "$BOT_F"); do
-    N="$(curl -s "${H[@]}" "$API/smart-faq?sourceId=$SID" | jq 'if type=="array" then length else 0 end' 2>/dev/null || echo 0)"
+    N="$(cbcurl -s "$API/smart-faq?sourceId=$SID" | jq 'if type=="array" then length else 0 end' 2>/dev/null || echo 0)"
     jq --arg s "$SID" --argjson n "${N:-0}" '.[$s]=$n' "$FAQMAP" > "$FAQMAP.tmp" && mv "$FAQMAP.tmp" "$FAQMAP"
   done
 
@@ -423,7 +426,7 @@ for SID in $(jq -r '.sources[]?.id' "$BOT_F"); do
   SNAME="$(jq -r --arg s "$SID" '.sources[] | select(.id==$s) | .name' "$BOT_F")"
   echo "--- source $SID ($SNAME) ---"
   FAQ_F="$TMP/faq_$SID.json"
-  curl -s "${H[@]}" "$API/smart-faq?sourceId=$SID" > "$FAQ_F"
+  cbcurl -s "$API/smart-faq?sourceId=$SID" > "$FAQ_F"
   if jq -e 'type=="array"' "$FAQ_F" >/dev/null 2>&1; then
     echo "  Smart FAQs: $(jq 'length' "$FAQ_F")"
   else

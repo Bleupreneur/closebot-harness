@@ -50,7 +50,7 @@ appeared 7×, 6 of those inside Method nodes (`Sections[].Body` and
 
 ```bash
 jq --arg old "Old Brand Wellness" --arg new "Acme Med Spa" \
-  'walk(if type=="string" then gsub($old; $new) else . end)' \
+  'walk(if type=="string" then (split($old) | join($new)) else . end)' \
   steps.json > tmp.json && mv tmp.json steps.json
 
 # leak-assert: old name AND old calendar id must be 0 across the WHOLE file

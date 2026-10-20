@@ -151,6 +151,48 @@ test('bot test --dry-run is refused (exit 2), not half-run', () => {
   assert.match(r.stderr, /cannot be dry-run/);
 });
 
+// Test sessions are CloseBot's own isolated test mode (no channels fire), and the
+// publish flow needs `cb bot test` on the bot about to go live — so the sandbox
+// allowlist gates publishing and write-mode smoke tests, not test sessions.
+test('test-session commands are not limited to sandbox bots', () => {
+  const sandboxFile = join(mkdtempSync(join(tmpdir(), 'cb-')), 'sandbox.json');
+  writeFileSync(sandboxFile, JSON.stringify({ bots: [], sources: [] }));
+  const r = run(['bottesting', 'put-testsession', '--botId', 'bot_CLIENT', '--leadId', 'lead_X', '--body', '{"mimicSourceId":"src_CLIENT"}', '--dry-run'], { CB_SANDBOX_FILE: sandboxFile });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(JSON.parse(r.stdout).body.mimicSourceId, 'src_CLIENT');
+});
+
+test('--flag=value is parsed, so --dry-run=true previews instead of sending', () => {
+  const r = run(['bot', 'list', '--dry-run=true']);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(JSON.parse(r.stdout).method, 'GET');
+});
+
+test('a misspelled safety flag is refused instead of being ignored', () => {
+  for (const flag of ['--dryrun', '--dry_run', '--Confirm']) {
+    const r = run(['bot', 'list', flag]);
+    assert.equal(r.status, 2, `${flag}: ${r.stderr}`);
+    assert.match(r.stderr, /did you mean/);
+  }
+  const bad = run(['bot', 'list', '--dry-run=yes']);
+  assert.equal(bad.status, 2);
+});
+
+test('a switch never swallows the next positional argument', () => {
+  // Before: --dry-run took bot_X as its value, so the id went missing (usage error).
+  const r = run(['bot', 'test', '--dry-run', 'bot_X', 'hello']);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /cannot be dry-run/);
+});
+
+test('billing settings writes are Tier 2 and need --confirm', () => {
+  for (const cmd of [['billing', 'put-options'], ['billing', 'put-re-billing']]) {
+    const r = run([...cmd, '--body', '{}', '--dry-run']);
+    assert.equal(r.status, 4, `${cmd.join(' ')}: ${r.stderr}`);
+    assert.match(r.stderr, /Tier 2/);
+  }
+});
+
 // Fix round 1 (2026-09-05): publish's confirm gate must still fire on the real
 // (non-dry-run) path exactly as before — only --dry-run is exempt.
 test('bot publish without --confirm or --dry-run exits 4 (existing behaviour preserved)', () => {

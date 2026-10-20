@@ -47,7 +47,10 @@ fi
 # Reference bot for framework-gap fixes: CB_TEMPLATE_BOT (env / ./.env) or cb.config.json templateBot.
 TEMPLATE_BOT="${CB_TEMPLATE_BOT:-$(jq -r '.templateBot // empty' "$REPO_DIR/cb.config.json" 2>/dev/null || true)}"
 [ -n "$TEMPLATE_BOT" ] || TEMPLATE_BOT="$(jq -r '.templateBot // empty' "$CB_CONFIG_DIR/cb.config.json" 2>/dev/null || true)"
-H=(-H "X-CB-KEY: $CLOSEBOT_API_KEY")
+# Every CloseBot call goes through cbcurl: the key is read by curl from a
+# process-substitution fd (-H @file), never placed on argv where any local user
+# could see it via `ps`. printf is a bash builtin, so no child process sees it either.
+cbcurl() { curl -H @<(printf 'X-CB-KEY: %s\n' "$CLOSEBOT_API_KEY") "$@"; }
 
 # --- args ---
 BOT_ID=""; AUTO=0; MAX_ITER=5; JSON_OUT=0; FLEET=0
@@ -77,7 +80,7 @@ log() { printf '%s\n' "$*" >&2; }
 newest_version() {  # highest semver across ALL versions — NOT "last unpublished".
   # A stale abandoned draft can sit later in the array than the published head;
   # auditing/pulling it would resurrect old content (live catch: a draft at 0.0.4 on a bot whose live head was 0.0.13).
-  curl -s "${H[@]}" "$API/bot/$1" \
+  cbcurl -s "$API/bot/$1" \
     | jq -r '.versions | sort_by(.version | split(".") | map(tonumber)) | last | .version'
 }
 
@@ -140,7 +143,7 @@ apply_auto() {
   # Pull from the NEWEST version by semver (live head or newest draft) — never a
   # stale abandoned draft, which /save could resurrect as the new draft.
   ver="$(newest_version "$bot")"
-  curl -s "${H[@]}" "$API/bot/$bot/steps?botVersion=$ver" > "$steps"
+  cbcurl -s "$API/bot/$bot/steps?botVersion=$ver" > "$steps"
 
   # Flip every queued flag on its named Method node.
   jq --slurpfile q "$f" '
@@ -154,8 +157,8 @@ apply_auto() {
           else . end)
       else . end)' "$steps" > "$steps.new"
 
-  jq '{botSteps: .}' "$steps.new" | curl -s -X POST "$API/bot/$bot/save" \
-    "${H[@]}" -H "Content-Type: application/json" --data-binary @- > "$resp"
+  jq '{botSteps: .}' "$steps.new" | cbcurl -s -X POST "$API/bot/$bot/save" \
+    -H "Content-Type: application/json" --data-binary @- > "$resp"
   local saved_ver invalid
   saved_ver="$(jq -r '.version // empty' "$resp")"
   invalid="$(jq -r '(.invalidPaths // [])|length' "$resp")"
@@ -164,7 +167,7 @@ apply_auto() {
 
   # Verify: re-pull the version the save landed on; every queued flag must now be true.
   local verify="$TMP/verify.json"
-  curl -s "${H[@]}" "$API/bot/$bot/steps?botVersion=$saved_ver" > "$verify"
+  cbcurl -s "$API/bot/$bot/steps?botVersion=$saved_ver" > "$verify"
   local bad
   bad="$(jq --slurpfile q "$f" '
     ($q[0].auto_queue) as $fixes |
@@ -209,7 +212,7 @@ run_bot() {
 ############################################################################
 if [ "$FLEET" -eq 1 ]; then
   ALL="$TMP/fleet.json"; : > "$ALL"
-  for b in $(curl -s "${H[@]}" "$API/bot" | jq -r '.[].id'); do
+  for b in $(cbcurl -s "$API/bot" | jq -r '.[].id'); do
     run_bot "$b" >> "$ALL" || log "[$b] loop errored — continuing fleet"
   done
   jq -s '.' "$ALL" > "$TMP/fleet-arr.json"

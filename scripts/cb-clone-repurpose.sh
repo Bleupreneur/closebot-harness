@@ -74,6 +74,8 @@ NEW_NAME="${POSITIONAL[1]:-}"
 [ -n "$NEW_NAME" ] || die "missing <new_bot_name> (the name for the duplicate)"
 case "$SRC_BOT" in bot_*) ;; *) die "source_bot_id must start with bot_ (got '$SRC_BOT')" ;; esac
 [ -z "$REF_BOT" ] || case "$REF_BOT" in bot_*) ;; *) die "--ref must start with bot_ (got '$REF_BOT')" ;; esac
+# GHL calendar ids are plain alphanumeric tokens; reject anything else before we touch the API.
+[ -z "$NEW_CAL" ] || case "$NEW_CAL" in *[!A-Za-z0-9_-]*) die "--cal must be a plain calendar id (got '$NEW_CAL')" ;; esac
 
 # --old-name and --new-name are a pair: both or neither.
 if { [ -n "$OLD_NAME" ] && [ -z "$NEW_CLIENT" ]; } || { [ -z "$OLD_NAME" ] && [ -n "$NEW_CLIENT" ]; }; then
@@ -95,7 +97,10 @@ if [ -z "${CLOSEBOT_API_KEY:-}" ] && [ -f "$CB_CONFIG_DIR/.env" ]; then
   set -a; . "$CB_CONFIG_DIR/.env"; set +a
 fi
 [ -n "${CLOSEBOT_API_KEY:-}" ] || die "CLOSEBOT_API_KEY not set (and no .env at $REPO_DIR/.env or $CB_CONFIG_DIR/.env)"
-H=(-H "X-CB-KEY: ${CLOSEBOT_API_KEY}")
+# Every CloseBot call goes through cbcurl: the key is read by curl from a
+# process-substitution fd (-H @file), never placed on argv where any local user
+# could see it via `ps`. printf is a bash builtin, so no child process sees it either.
+cbcurl() { curl -H @<(printf 'X-CB-KEY: %s\n' "$CLOSEBOT_API_KEY") "$@"; }
 
 # --- temp files: always write API responses to disk, run jq against the FILE.
 #     CloseBot step payloads contain unescaped control chars in some strings that
@@ -104,6 +109,11 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 SRC_F="$TMP/src_bot.json"; DUP_F="$TMP/dup_bot.json"; REF_F="$TMP/ref_bot.json"
 REFSTEPS_F="$TMP/ref_steps.json"; STEPS_F="$TMP/steps.json"; ORIG_F="$TMP/steps.original.json"
 EDIT_F="$TMP/steps.edited.json"
+
+# Literal find/replace over every string in the tree. split/join, NOT gsub: gsub
+# treats $old as a regex, so names like "A+ Wellness" or "Dr. (Smith)" would either
+# miss or match the wrong text.
+REPLACE_JQ='walk(if type=="string" then split($old) | join($new) else . end)'
 
 # version resolver: the HEAD version = highest semver across ALL versions, same as
 # `cb bot version <id>` .target. Never "last unpublished" — that resurrects stale
@@ -114,7 +124,7 @@ resolve_ver() { jq -r '.versions // [] | sort_by(.version | split(".") | map(ton
 echo -e "${BOLD}CloseBot clone→repurpose${NC}  source=$SRC_BOT  new-name=\"$NEW_NAME\"  $([ "$DRY" -eq 1 ] && echo '(DRY-RUN)')" >&2
 
 # --- 0. verify source bot exists --------------------------------------------
-curl -s "${H[@]}" "$API/bot/$SRC_BOT" > "$SRC_F"
+cbcurl -s "$API/bot/$SRC_BOT" > "$SRC_F"
 jq -e '.id' "$SRC_F" >/dev/null 2>&1 \
   || { head -c 400 "$SRC_F" >&2; echo >&2; die "could not fetch source bot $SRC_BOT (key invalid, bot missing, or spec drift)" 1; }
 note "${GREEN}✓ source bot found:${NC} $(jq -r '.name' "$SRC_F")"
@@ -122,10 +132,10 @@ note "${GREEN}✓ source bot found:${NC} $(jq -r '.name' "$SRC_F")"
 # --- 1. resolve the NEW calendar (Tier 0 read of --ref if --cal not given) ---
 if [ -z "$NEW_CAL" ] && [ -n "$REF_BOT" ]; then
   hr "Reading reference bot $REF_BOT for the new calendar (read-only)"
-  curl -s "${H[@]}" "$API/bot/$REF_BOT" > "$REF_F"
+  cbcurl -s "$API/bot/$REF_BOT" > "$REF_F"
   jq -e '.id' "$REF_F" >/dev/null 2>&1 || die "could not fetch reference bot $REF_BOT" 1
   REF_VER="$(resolve_ver "$REF_F")"
-  curl -s "${H[@]}" "$API/bot/$REF_BOT/steps?botVersion=$REF_VER" > "$REFSTEPS_F"
+  cbcurl -s "$API/bot/$REF_BOT/steps?botVersion=$REF_VER" > "$REFSTEPS_F"
   NEW_CAL="$(jq -r '[.nodes[]? | select(.type=="Method") | .data.GhlBookingCalendarId
                      | select(. != null and . != "")] | first // empty' "$REFSTEPS_F")"
   [ -n "$NEW_CAL" ] \
@@ -136,7 +146,7 @@ fi
 # --- 2. resolve source draft + pull its steps (this is what duplicate copies) -
 SRC_VER="$(resolve_ver "$SRC_F")"
 [ -n "$SRC_VER" ] && [ "$SRC_VER" != "null" ] || die "could not resolve a version for $SRC_BOT" 1
-curl -s "${H[@]}" "$API/bot/$SRC_BOT/steps?botVersion=$SRC_VER" > "$STEPS_F"
+cbcurl -s "$API/bot/$SRC_BOT/steps?botVersion=$SRC_VER" > "$STEPS_F"
 jq -e '.nodes' "$STEPS_F" >/dev/null 2>&1 || die "could not fetch steps for $SRC_BOT @ $SRC_VER" 1
 cp "$STEPS_F" "$ORIG_F"
 
@@ -159,6 +169,13 @@ if [ -n "$OLD_NAME" ]; then
   note "  \"$OLD_NAME\" occurrences in steps  : ${NHITS}"
 fi
 
+# --- pre-flight: prove the name swap runs on the source steps BEFORE duplicating,
+#     so a bad input fails here instead of leaving an orphan duplicate behind. ---
+if [ -n "$OLD_NAME" ]; then
+  jq --arg old "$OLD_NAME" --arg new "$NEW_CLIENT" "$REPLACE_JQ" "$STEPS_F" > "$TMP/preflight.json" \
+    || die "name find/replace failed on the source steps — nothing duplicated" 2
+fi
+
 # --- 3. DUPLICATE the source (creates the new bot) ---------------------------
 if [ "$DRY" -eq 1 ]; then
   hr "DRY-RUN — would now POST /bot/$SRC_BOT/duplicate (skipped)"
@@ -167,16 +184,16 @@ if [ "$DRY" -eq 1 ]; then
   cp "$STEPS_F" "$EDIT_F"
 else
   hr "Duplicating source → new bot"
-  curl -s -X POST "${H[@]}" "$API/bot/$SRC_BOT/duplicate" > "$DUP_F"
+  cbcurl -s -X POST "$API/bot/$SRC_BOT/duplicate" > "$DUP_F"
   DUP_BOT="$(jq -r '.id // empty' "$DUP_F")"
   [ -n "$DUP_BOT" ] || { head -c 400 "$DUP_F" >&2; echo >&2; die "duplicate did not return a bot id" 1; }
   note "${GREEN}✓ duplicate created:${NC} $DUP_BOT"
 
   # Pull the duplicate's OWN head version (a fresh dup is usually 0.0.1 and may already be published — never assume).
-  curl -s "${H[@]}" "$API/bot/$DUP_BOT" > "$DUP_F"
+  cbcurl -s "$API/bot/$DUP_BOT" > "$DUP_F"
   DUP_VER="$(resolve_ver "$DUP_F")"
   [ -n "$DUP_VER" ] && [ "$DUP_VER" != "null" ] || die "could not resolve a draft version on the new duplicate $DUP_BOT" 1
-  curl -s "${H[@]}" "$API/bot/$DUP_BOT/steps?botVersion=$DUP_VER" > "$STEPS_F"
+  cbcurl -s "$API/bot/$DUP_BOT/steps?botVersion=$DUP_VER" > "$STEPS_F"
   jq -e '.nodes' "$STEPS_F" >/dev/null 2>&1 || die "could not fetch steps for the duplicate $DUP_BOT @ $DUP_VER" 1
   cp "$STEPS_F" "$ORIG_F"           # diff baseline = the untouched duplicate
   cp "$STEPS_F" "$EDIT_F"
@@ -217,8 +234,7 @@ if [ -n "$NEW_CAL" ]; then
   # inline text swap for each distinct old id that isn't already the new one
   while IFS= read -r oc; do
     [ -n "$oc" ] && [ "$oc" != "$NEW_CAL" ] || continue
-    jq --arg old "$oc" --arg new "$NEW_CAL" '
-      walk(if type=="string" then gsub($old; $new) else . end)' "$EDIT_F" > "$EDIT_F.tmp" && mv "$EDIT_F.tmp" "$EDIT_F"
+    jq --arg old "$oc" --arg new "$NEW_CAL" "$REPLACE_JQ" "$EDIT_F" > "$EDIT_F.tmp" && mv "$EDIT_F.tmp" "$EDIT_F"
     note "  calendar (inline text) → replaced $oc everywhere"
   done < "$OLDCALS_F"
 else
@@ -230,8 +246,8 @@ fi
 #     whole-tree string walk so no occurrence is missed (Sections, Instructions,
 #     Prompts, prohibitedWords, etc.), then the identity fields are reported.
 if [ -n "$OLD_NAME" ]; then
-  jq --arg old "$OLD_NAME" --arg new "$NEW_CLIENT" '
-    walk(if type=="string" then gsub($old; $new) else . end)' "$EDIT_F" > "$EDIT_F.tmp" && mv "$EDIT_F.tmp" "$EDIT_F"
+  jq --arg old "$OLD_NAME" --arg new "$NEW_CLIENT" "$REPLACE_JQ" "$EDIT_F" > "$EDIT_F.tmp" && mv "$EDIT_F.tmp" "$EDIT_F" \
+    || die "name find/replace failed — NOT saving" 1
   RHITS="$(grep -oF "$NEW_CLIENT" "$EDIT_F" | wc -l | tr -d ' ')"
   note "  name find/replace: \"$OLD_NAME\" → \"$NEW_CLIENT\"  (now $RHITS occurrence(s) of the new name)"
 else
@@ -297,7 +313,7 @@ if [ "$DRY" -eq 1 ]; then
   note "  Re-run without --dry-run to duplicate $SRC_BOT and save the swaps."
 else
   hr "Saving draft to $DUP_BOT"
-  RESP="$(jq '{botSteps: .}' "$EDIT_F" | curl -s -X POST "${H[@]}" \
+  RESP="$(jq '{botSteps: .}' "$EDIT_F" | cbcurl -s -X POST \
             -H "Content-Type: application/json" --data-binary @- "$API/bot/$DUP_BOT/save")"
   SAVED_VER="$(echo "$RESP" | jq -r '.version // empty')"
   INVALID="$(echo "$RESP" | jq -r '(.invalidPaths // []) | length')"
@@ -308,7 +324,7 @@ else
   fi
   note "${GREEN}✓ saved cleanly${NC}  version=$SAVED_VER  invalidPaths=[]"
   # verify the swap stuck (re-pull the version the save landed on)
-  curl -s "${H[@]}" "$API/bot/$DUP_BOT/steps?botVersion=$SAVED_VER" > "$TMP/verify.json"
+  cbcurl -s "$API/bot/$DUP_BOT/steps?botVersion=$SAVED_VER" > "$TMP/verify.json"
   if [ -n "$NEW_CAL" ]; then
     VCAL="$(jq -r '[.nodes[]? | select(.type=="Method") | .data.GhlBookingCalendarId] | unique | join(",")' "$TMP/verify.json")"
     [ "$VCAL" = "$NEW_CAL" ] \

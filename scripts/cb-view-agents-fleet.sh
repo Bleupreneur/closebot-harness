@@ -21,14 +21,18 @@ set -euo pipefail
 
 CONCURRENCY=4
 BOT_IDS=()
-for arg in "$@"; do
-  case "$arg" in
-    --concurrency) shift; CONCURRENCY="${1:-4}";;  # handled below if needed
-    --concurrency=*) CONCURRENCY="${arg#*=}";;
-    bot_*) BOT_IDS+=("$arg");;
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --concurrency) CONCURRENCY="${2:-}"; [ $# -ge 2 ] && shift;;
+    --concurrency=*) CONCURRENCY="${1#*=}";;
+    bot_*) BOT_IDS+=("$1");;
     *) ;;
   esac
+  shift
 done
+case "$CONCURRENCY" in
+  ''|*[!0-9]*|0*) echo "ERROR: --concurrency needs a positive integer (got '$CONCURRENCY')" >&2; exit 2;;
+esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -46,7 +50,8 @@ fi
 if [ "${#BOT_IDS[@]}" -eq 0 ]; then
   echo "No bot ids given — enumerating all bots via GET /bot ..." >&2
   while IFS= read -r id; do BOT_IDS+=("$id"); done < <(
-    curl -s -H "X-CB-KEY: $CLOSEBOT_API_KEY" "https://api.closebot.com/bot" | jq -r '.[].id'
+    # Key goes in via a process-substitution fd, not argv (argv is visible in `ps`).
+    curl -s -H @<(printf 'X-CB-KEY: %s\n' "$CLOSEBOT_API_KEY") "https://api.closebot.com/bot" | jq -r '.[].id'
   )
 fi
 [ "${#BOT_IDS[@]}" -gt 0 ] || { echo "ERROR: no bots to view" >&2; exit 1; }

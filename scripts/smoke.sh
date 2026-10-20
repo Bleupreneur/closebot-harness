@@ -51,13 +51,14 @@ fi
 
 # Spec drift pre-check (offline if upstream is down — non-blocking)
 echo -e "${GRAY}── Spec drift check ──${NC}"
-if curl -fsSL --max-time 10 "https://megastream25-api.closebot.com/swagger/v1/swagger.json" -o /tmp/closebot-upstream.json 2>/dev/null; then
-  if diff -q /tmp/closebot-upstream.json schema/openapi.json >/dev/null 2>&1; then
+UPSTREAM=$(mktemp "${TMPDIR:-/tmp}/closebot-upstream.XXXXXX") || exit 2
+trap 'rm -f "$UPSTREAM"' EXIT
+if curl -fsSL --max-time 10 "https://megastream25-api.closebot.com/swagger/v1/swagger.json" -o "$UPSTREAM" 2>/dev/null; then
+  if diff -q "$UPSTREAM" schema/openapi.json >/dev/null 2>&1; then
     echo -e "${GREEN}✓${NC} schema/openapi.json in sync with upstream Swagger"
   else
     echo -e "${YELLOW}⚠${NC} upstream Swagger differs from local schema/openapi.json — run: cli/cb spec refresh"
   fi
-  rm -f /tmp/closebot-upstream.json
 else
   echo -e "${YELLOW}⚠${NC} upstream Swagger unreachable (skipping drift check)"
 fi
@@ -65,8 +66,9 @@ fi
 check () {
   local label="$1"; local method="$2"; local url="$3"; local expect="$4"; shift 4
   local code
+  # Key is read from a process-substitution fd, not argv (argv is visible in `ps`).
   code=$(curl -sS -o /dev/null -w "%{http_code}" -X "$method" "$url" \
-    -H "X-CB-KEY: $CLOSEBOT_API_KEY" -H "Content-Type: application/json" \
+    -H @<(printf 'X-CB-KEY: %s\n' "$CLOSEBOT_API_KEY") -H "Content-Type: application/json" \
     --max-time 15 "$@" 2>/dev/null || echo "000")
   if [[ ",$expect," == *",$code,"* ]]; then
     echo -e "${GREEN}✓${NC} $label ${GRAY}($method ${url##*closebot.???} → $code)${NC}"
@@ -114,7 +116,7 @@ if [[ "${1:-}" == "--write" ]]; then
   SB=$(jq -r '.bots[0] // empty' "$SB_FILE")
   [[ -n "$SB" && "$SB" != *XXXX* ]] || { echo -e "${RED}✗${NC} $SB_FILE has no real sandbox bot id (still the placeholder?)"; exit 1; }
   TMP=$(mktemp -d)
-  trap 'rm -rf "$TMP"' EXIT
+  trap 'rm -rf "$TMP" "$UPSTREAM"' EXIT
   cli/cb bot pull "$SB" --out "$TMP/steps.json" >/dev/null || { echo -e "${RED}✗${NC} pull"; exit 1; }
   MARK="[CB-SANDBOX smoke $(date +%s)]"
   jq --arg m "$MARK" '(.nodes[] | select(.type=="Method") | .data.Instructions) |= ($m + " " + .)' "$TMP/steps.json" > "$TMP/mut.json"

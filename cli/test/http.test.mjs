@@ -141,3 +141,8 @@ test('maxTimeMs bounds a slow response body read, not just the initial fetch', a
     /AbortError|aborted/i,
   );
 });
+
+test('redaction covers channel auth tokens and other secret fields', () => {
+  const r = redact({ channels: [{ name: 'web', authToken: 'a', externalApiKey: 'b', clientSecret: 'c' }] }, ov.redactFields);
+  assert.deepEqual(r.channels[0], { name: 'web', authToken: '***', externalApiKey: '***', clientSecret: '***' });
+});

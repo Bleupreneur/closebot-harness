@@ -1,10 +1,12 @@
 import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { REPO_DIR } from './config.mjs';
+import { REPO_DIR, isPluginMode, userConfigDir } from './config.mjs';
 import { printJson, printTable, fail } from './output.mjs';
 
 // Local, gitignored log of API surprises (contains excerpts of your own account's responses).
-const AUTO = process.env.CB_GOTCHA_LOG || join(REPO_DIR, 'gotchas', 'auto.jsonl');
+// Plugin installs keep it in the user config dir: the plugin folder is replaced on update.
+const AUTO = process.env.CB_GOTCHA_LOG
+  || (isPluginMode() && userConfigDir() ? join(userConfigDir(), 'gotchas.auto.jsonl') : join(REPO_DIR, 'gotchas', 'auto.jsonl'));
 export function gotchasPath() {
   const root = join(REPO_DIR, 'GOTCHAS.md');
   return existsSync(root) ? root : join(REPO_DIR, '.claude', 'skills', 'GOTCHAS.md');

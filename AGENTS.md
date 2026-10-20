@@ -91,7 +91,7 @@ It is the reference for `closebot-apply-template`, `closebot-repurpose-bot` (and
 
 ## Sandbox
 
-Write-mode tests only run against ids in `cli/sandbox.json` (gitignored — copy `cli/sandbox.example.json` and follow its setup note; plugin installs: `~/.config/closebot/sandbox.json` via `cb init --global --sandbox`). `scripts/smoke.sh --write` and `cb bot test` use it. `cb` refuses write tests against any id not listed there, and refuses to publish any id that is listed; the sandbox bot must never go live.
+Write-mode tests only run against ids in `cli/sandbox.json` (gitignored — copy `cli/sandbox.example.json` and follow its setup note; plugin installs: `~/.config/closebot/sandbox.json` via `cb init --global --sandbox`). `scripts/smoke.sh --write` uses it. `cb` refuses write tests against any id not listed there, and refuses to publish any id that is listed; the sandbox bot must never go live. Test sessions (`cb bot test`, `cb bot session-*`) run in CloseBot's isolated test mode and work on any bot, so a client bot can be tested before it is published.
 
 ## Closing a session (checklist)
 

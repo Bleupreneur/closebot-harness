@@ -3,6 +3,8 @@
     "POST /bot/{id}/publish",
     "POST /agency/billing/refill",
     "POST /agency/billing/refill/source/{sourceId}",
+    "PUT /agency/billing/options",
+    "PUT /agency/billing/re-billing",
     "PUT /report/{id}/shares",
     "POST /bot/{id}/saveTools",
     "POST /bot/{botId}/testSession/{leadId}/rollback",
@@ -15,7 +17,13 @@
     "accessToken",
     "refreshToken",
     "apiKey",
-    "token"
+    "token",
+    "authToken",
+    "externalApiKey",
+    "authorizationCode",
+    "clientSecret",
+    "secret",
+    "password"
   ],
   "projectSources": [
     "sourceId",

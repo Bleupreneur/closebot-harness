@@ -53,6 +53,9 @@ CB_CONFIG_DIR="${CLOSEBOT_CONFIG_DIR:-${HOME:-}/.config/closebot}"
 [ -z "${CLOSEBOT_API_KEY:-}" ] && [ -f "$CB_CONFIG_DIR/.env" ] && set -a && . "$CB_CONFIG_DIR/.env" && set +a
 CB="${CLOSEBOT_API_KEY:-}"
 REST="https://api.closebot.com"
+# Secrets reach curl as headers read from a process-substitution fd (-H @file), never
+# on argv, where any local user could read them via `ps`. printf is a bash builtin.
+cbcurl() { curl -H @<(printf 'X-CB-KEY: %s\n' "$CB") "$@"; }
 
 # --- GHL auth ---
 BURL="${GHL_BROKER_URL:-}"; BKEY="${GHL_BROKER_KEY:-}"
@@ -65,13 +68,13 @@ case "$ARG" in
   bot_*)
     [ -n "$CB" ] || die "CLOSEBOT_API_KEY needed to resolve a bot id (set it in ./.env)" 2
     note "${GRAY}Resolving bot $ARG → GHL location via its CloseBot source…${NC}"
-    LOC=$(curl -s -H "X-CB-KEY: $CB" "$REST/bot/$ARG" \
+    LOC=$(cbcurl -s "$REST/bot/$ARG" \
       | jq -r '[.sources[]? | select(.category=="GHL") | .key] | first // empty')
     ;;
   src_*)
     [ -n "$CB" ] || die "CLOSEBOT_API_KEY needed to resolve a source id (set it in ./.env)" 2
     note "${GRAY}Resolving source $ARG → GHL location…${NC}"
-    LOC=$(curl -s -H "X-CB-KEY: $CB" "$REST/agency/source" \
+    LOC=$(cbcurl -s "$REST/agency/source" \
       | jq -r --arg s "$ARG" '[.[] | select(.id==$s and .category=="GHL") | .key] | first // empty')
     ;;
   *) LOC="$ARG" ;;  # assume raw locationId
@@ -83,7 +86,7 @@ note "${GREEN}✓ GHL location:${NC} $LOC"
 if [ -n "${GHL_TOKEN:-}" ]; then
   TOK="$GHL_TOKEN"
 else
-  TOK=$(curl -s -X POST -H "Authorization: Bearer $BKEY" -H "Content-Type: application/json" \
+  TOK=$(curl -s -X POST -H @<(printf 'Authorization: Bearer %s\n' "$BKEY") -H "Content-Type: application/json" \
           -d "{\"locationId\":\"$LOC\"}" "$BURL/location-token" | jq -r '.access_token // empty')
   # A blank token usually means the broker's installed-locations list is stale or the
   # OAuth app is not installed on this sub-account — refresh the broker, then re-run.
@@ -91,7 +94,7 @@ else
 fi
 
 GHL="https://services.leadconnectorhq.com"
-gh() { curl -s "$GHL$1" -H "Authorization: Bearer $TOK" -H "Version: 2021-07-28" -H "Accept: application/json"; }
+gh() { curl -s "$GHL$1" -H @<(printf 'Authorization: Bearer %s\n' "$TOK") -H "Version: 2021-07-28" -H "Accept: application/json"; }
 
 # --- 3. pull the three things that matter ---
 LOCJSON=$(gh "/locations/$LOC")

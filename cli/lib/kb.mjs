@@ -52,7 +52,7 @@ async function attach(ctx, fileId, sourceId, enabled = true) {
   return ctx.call({ method: 'POST', base: REST, path: '/library/files/{fileId}/source/{sourceId}', params: { fileId, sourceId }, body: { tags: [], channels: [], enabled } });
 }
 async function listAttached(ctx, sourceId) {
-  const r = await ctx.call({ method: 'GET', base: REST, path: '/library/files', query: { sourceId } });
+  const r = await (ctx.read || ctx.call)({ method: 'GET', base: REST, path: '/library/files', query: { sourceId } });
   if (!r.ok) fail(3, `GET /library/files → ${r.status}`);
   return r.data;
 }
@@ -80,6 +80,15 @@ export const kbCommands = {
   async build(ctx) {
     const { source, from } = ctx.flags; if (!source || !from) fail(2, 'usage: cb kb build --source <src_id> --from <dir> [--faq-csv f] [--url u]');
     const m = loadManifest(from); m.sourceId = source;
+    // --dry-run reports the plan and stops: no upload, no attach, and no manifest write
+    // (a dry-run manifest entry has no fileId and makes the next real build skip the file).
+    if (ctx.dryRun) {
+      const csv = ctx.flags['faq-csv'];
+      return printJson({ dryRun: true, sourceId: source,
+        upload: localFiles(from).filter(f => m.files[f.name]?.sha256 !== f.sha256).map(f => f.name),
+        scrapes: [].concat(ctx.flags.url || []),
+        faqs: csv ? readFileSync(csv, 'utf8').split('\n').slice(1).filter(Boolean).length : 0 });
+    }
     for (const f of localFiles(from)) {
       if (m.files[f.name]?.sha256 === f.sha256) continue;
       const fileId = await upload(ctx, f.path);
@@ -115,6 +124,7 @@ export const kbCommands = {
     const { from } = ctx.flags; if (!from) fail(2, 'usage: cb kb update --from <dir>');
     const m = loadManifest(from); if (!m.sourceId) fail(2, 'no manifest in that dir; run cb kb build first');
     const d = diffManifest(m, localFiles(from));
+    if (ctx.dryRun) { printJson({ dryRun: true, ...d }); return d; }
     for (const n of d.changed) {
       const p = join(from, n); const fileId = m.files[n].fileId;
       await replaceContent(ctx, fileId, p);

@@ -20,7 +20,7 @@ jq --arg cal "$NEW_CAL" '
 # not just Sections[].Body — a live bot had it 10x: 4 fields, 3 in Section bodies, 3 in
 # Instructions. Whole-tree walk so no string field is missed:
 jq --arg old "$OLD_CAL" --arg new "$NEW_CAL" \
-  'walk(if type=="string" then gsub($old; $new) else . end)' \
+  'walk(if type=="string" then (split($old) | join($new)) else . end)' \
   steps.json > steps2.json && mv steps2.json steps.json
 
 # Leak-assert BEFORE saving:

@@ -26,10 +26,10 @@ GET /leaderboard/*                 GET /report, /dashboard           GET /lead/{
 Examples:
 ```
 POST /bot                      PUT  /bot/{id}                  POST /bot/{id}/save
-POST /bot/ai                   PUT  /agency/billing/options    POST /lead/{leadId}/send-message
-POST /agency/source            PUT  /lead/{leadId}/ai-toggle   POST /persona
-POST /library/files            PUT  /persona/{id}              POST /smart-faq
-POST /smart-faq/answer         PUT  /agency/billing/re-billing POST /webhook/event/{sourceId}
+POST /bot/ai                   PUT  /lead/{leadId}/ai-toggle   POST /lead/{leadId}/send-message
+POST /agency/source            PUT  /persona/{id}              POST /persona
+POST /library/files            POST /smart-faq
+POST /smart-faq/answer         POST /webhook/event/{sourceId}
 PUT  /library/files/{fileId}   ← replaces file content in place; goes live on re-index, NO publish gate
 POST /bot/preview-import       POST /agency/source/{sourceId}/custom-channels
 PUT  /agency/source/{sourceId}/custom-channels/{channelId}
@@ -65,6 +65,8 @@ Hard stop. Agent must **not** call these without the user typing back an explici
 | `POST /bot/{id}/publish` | Promotes a bot version to **production** — clients see this immediately |
 | `POST /agency/billing/refill` | Charges the saved payment method (real money) |
 | `POST /agency/billing/refill/source/{sourceId}` | Charges per-source wallet (real money) |
+| `PUT /agency/billing/options` | Changes auto-refill settings, which can trigger automatic card charges |
+| `PUT /agency/billing/re-billing` | Changes how clients are re-billed |
 | `POST /agency/billing/transactions/source/{sourceId}` | Records a billing transaction |
 | `POST /bot/{botId}/testSession/{leadId}/rollback` | Rolls back a test session state |
 | `POST /bot/{id}/saveTools` | Replaces the bot's tool set wholesale |

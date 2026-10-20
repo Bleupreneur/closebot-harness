@@ -72,13 +72,23 @@ export async function verifyPublished(ctx, id, version) {
   const r = await (ctx.read || ctx.call)({ method: 'GET', base: REST, path: '/bot/{id}', params: { id } });
   return !!(r.ok && (r.data?.versions || []).some(v => v.version === version && v.published === true));
 }
+// One SSE line -> event object, or null for blank/heartbeat/malformed lines. Shared by
+// extractReplies and sendTestTurn so the two can't disagree on what counts as an event.
+export function parseSseLine(line) {
+  line = line.replace(/\r$/, '');
+  if (line === 'event: connected') return { type: 'connected' };
+  if (!line.startsWith('data:')) return null;
+  const data = line.slice(5).trim();
+  if (data === 'connected') return { type: 'connected' };
+  try { return JSON.parse(data); } catch { return null; }
+}
+const isReply = e => e?.type === 'message-sent' && typeof e.message === 'string' && e.message !== '';
 export function extractReplies(sse) {
   const messages = [], tools = [];
   for (const line of String(sse).split('\n')) {
-    if (!line.startsWith('data:')) continue;
-    let j; try { j = JSON.parse(line.slice(5).trim()); } catch { continue; }
-    if (j.type === 'message-sent' && j.message) messages.push(j.message);
-    if (j.type === 'tool_use' && j.toolName) tools.push(j.toolName);
+    const j = parseSseLine(line);
+    if (isReply(j)) messages.push(j.message);
+    if (j?.type === 'tool_use' && j.toolName) tools.push(j.toolName);
   }
   return { messages, tools };
 }
@@ -88,31 +98,95 @@ export function audit(id, json, spawnImpl = spawnSync) {
   return spawnImpl('bash', [join(REPO_DIR, 'scripts', 'cb-view-agent.sh'), id, ...(json ? ['--json'] : [])], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 }
 
-// request()'s AbortController is disarmed (clearTimeout) as soon as fetch() resolves with
-// response headers — it does not bound the subsequent body read. The testSession messages
-// endpoint is a long-poll: it returns 200 immediately and then holds the SSE stream open,
-// so routing it through ctx.call()/request() hangs past maxTimeMs waiting for resp.text().
-// Poll here with our own bounded stream read instead (fetchImpl injectable for tests).
-export async function pollTestMessages(ctx, botId, leadId, maxTimeMs, fetchImpl = fetch) {
+// The testSession SSE endpoint is live-only: subscribing after POST /message loses fast
+// replies. Wait for its connected event before sending, then collect every reply bubble
+// until the stream is quiet (or the hard deadline). fetchImpl is injectable for tests.
+// drainMs > 0 (reused sessions): before sending, wait until no bubble has arrived for
+// drainMs, so a late bubble from the previous turn isn't counted as this turn's reply.
+export async function sendTestTurn(ctx, botId, leadId, message, maxTimeMs, settleMs = 2500, fetchImpl = fetch, drainMs = 0) {
   const url = buildUrl(REST, '/bot/{botId}/testSession/messages/{leadId}', { botId, leadId });
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), maxTimeMs);
-  let text = '';
-  try {
-    const resp = await fetchImpl(url, { method: 'GET', headers: { 'X-CB-KEY': ctx.key }, signal: ctrl.signal });
-    const reader = resp.body?.getReader?.();
-    if (!reader) { text = await resp.text(); }
-    else {
-      const decoder = new TextDecoder();
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        text += decoder.decode(value, { stream: true });
-      }
+  let readyResolve, readyReject, doneResolve, doneReject;
+  const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; });
+  const done = new Promise((resolve, reject) => { doneResolve = resolve; doneReject = reject; });
+  // A send failure can end the turn before its result is awaited.
+  done.catch(() => {});
+  const replies = [], tools = [];
+  let connected = false, finished = false, sent = false, quietTimer, reader, drainTimer, drainResolve;
+  const finish = (error = null) => {
+    if (finished) return;
+    finished = true;
+    drainResolve?.();
+    if (!connected) readyReject(error || new Error('test-session SSE closed before connected'));
+    if (error) doneReject(error); else doneResolve({ messages: replies, tools });
+    ctrl.abort();
+  };
+  const deadline = setTimeout(() => finish(connected ? null : new Error('test-session SSE did not connect before timeout')), maxTimeMs);
+  const onEvent = (event) => {
+    if (event?.type === 'connected') {
+      if (!connected) { connected = true; readyResolve(); }
+      return;
     }
-  } catch (e) { if (e.name !== 'AbortError') throw e; /* long-poll timeout is expected */ }
-  finally { clearTimeout(timer); }
-  return text;
+    if (connected && !sent && drainResolve && isReply(event)) {
+      clearTimeout(drainTimer);
+      drainTimer = setTimeout(drainResolve, drainMs);
+    }
+    if (!connected || !sent) return;
+    if (isReply(event)) replies.push(event.message);
+    if (event?.type === 'tool_use' && event.toolName) tools.push(event.toolName);
+    if (replies.length) {
+      clearTimeout(quietTimer);
+      quietTimer = setTimeout(() => finish(), settleMs);
+    }
+  };
+  const stream = (async () => {
+    let pending = '';
+    const consume = (chunk) => {
+      pending += chunk;
+      for (;;) {
+        const end = pending.indexOf('\n');
+        if (end < 0) break;
+        const event = parseSseLine(pending.slice(0, end));
+        pending = pending.slice(end + 1);
+        if (event) onEvent(event);
+      }
+    };
+    try {
+      const resp = await fetchImpl(url, { method: 'GET', headers: { 'X-CB-KEY': ctx.key, Accept: 'text/event-stream' }, signal: ctrl.signal });
+      if (!resp.ok) throw new Error(`GET test-session SSE → HTTP ${resp.status}`);
+      reader = resp.body?.getReader?.();
+      if (!reader) throw new Error('GET test-session SSE returned no readable stream');
+      const decoder = new TextDecoder();
+      while (!finished) {
+        const { done: ended, value } = await reader.read();
+        if (ended) break;
+        consume(decoder.decode(value, { stream: true }));
+      }
+      consume(decoder.decode());
+      // Closed after the send: a turn with no reply (empty result), not a transport error.
+      if (!finished) finish(connected && sent ? null : new Error(`test-session SSE closed before ${connected ? 'the message was sent' : 'connected'}`));
+    } catch (error) {
+      if (!finished) finish(error);
+    }
+  })();
+  try {
+    await ready;
+    if (drainMs > 0 && !finished) await new Promise(resolve => { drainResolve = resolve; drainTimer = setTimeout(resolve, drainMs); });
+    drainResolve = null;
+    if (finished) throw new Error('test-session SSE closed before message could be sent');
+    // The reply can arrive before POST returns, so begin collecting first.
+    sent = true;
+    const response = await ctx.call({ method: 'POST', base: REST, path: '/bot/{botId}/testSession/message', params: { botId }, body: { leadId, message } });
+    if (!response.ok) throw new Error(`POST /bot/${botId}/testSession/message → ${response.status}: ${JSON.stringify(response.data).slice(0, 300)}`);
+    return await done;
+  } finally {
+    clearTimeout(deadline);
+    clearTimeout(quietTimer);
+    clearTimeout(drainTimer);
+    ctrl.abort();
+    reader?.cancel().catch(() => {});
+    void stream;
+  }
 }
 
 export const botCommands = {
@@ -184,39 +258,28 @@ Object.assign(botCommands, {
     if (!ok) fail(3, `publish returned ${r.status} but GET /bot/${id} does not show ${t.target} as published — do not trust the response body; investigate before retrying`);
     printJson({ published: t.target, previousLive: t.live, diff });
   },
-  async test(ctx, pollImpl = pollTestMessages) {
-    const [id, msg] = ctx.pos; if (!id || !msg) fail(2, 'usage: cb bot test <bot_id> "<message>" [--max-time 30] [--lead <leadId>]');
+  async test(ctx, turnImpl = sendTestTurn) {
+    const [id, msg] = ctx.pos; if (!id || !msg) fail(2, 'usage: cb bot test <bot_id> "<message>" [--max-time 30] [--settle-ms 2500] [--lead <leadId>]');
     // Under --dry-run, ctx.call would return the request descriptor as `data` for the
     // testSession POST, so `s.data?.leadId` is undefined and the command falls into a
     // misleading "could not create test session" failure. There's no meaningful dry run
     // of a real ephemeral test session — refuse outright instead of half-running.
     if (ctx.dryRun) fail(2, 'cb bot test cannot be dry-run: it creates and deletes a real ephemeral test session');
-    const maxTimeMs = (parseInt(ctx.flags['max-time'], 10) || 30) * 1000;
+    const { maxTimeMs, settleMs } = testTiming(ctx.flags);
     // --lead <leadId>: reuse a test session the caller created with
-    // `cb bottesting post-testsession` and still owns. Multi-turn probes need the bot's
+    // `cb bot session-create` and still owns. Multi-turn probes need the bot's
     // conversation memory to carry across turns, which a fresh session per call can't
     // give. With --lead there is no create and no delete — the caller cleans up with
-    // `cb bottesting delete-testsession` when the probe is done.
+    // `cb bot session-delete` when the probe is done.
     const ownLead = typeof ctx.flags?.lead === 'string' && ctx.flags.lead ? ctx.flags.lead : null;
-    let leadId = ownLead;
-    const s = ownLead ? null : await ctx.call({ method: 'POST', base: REST, path: '/bot/{botId}/testSession', params: { botId: id }, body: {} });
-    if (!ownLead) leadId = s.data?.leadId;
-    if (!leadId) {
-      const st = await ctx.call({ method: 'GET', base: REST, path: '/bot/{botId}/testSession', params: { botId: id } });
-      fail(3, `could not create test session (HTTP ${s.status}). Session status: ${JSON.stringify(st.data).slice(0, 400)}\nIf mostRecentFailureReason is "no_persona": assign a persona in the UI (no API path).`);
-    }
+    const leadId = ownLead ?? await createSession(ctx, id);
     // Everything from here on must clean up the ephemeral test lead even on failure — hence
     // the try/finally. Note: fail() calls process.exit(), which does NOT run pending finally
     // blocks (a real process exit, not a throw), so a mid-flight failure is captured into
     // `failure` and only turned into fail(3, …) after the finally's DELETE has already run.
     let failure = null, out = { messages: [], tools: [] };
     try {
-      const m = await ctx.call({ method: 'POST', base: REST, path: '/bot/{botId}/testSession/message', params: { botId: id }, body: { leadId, message: msg } });
-      if (!m.ok) failure = `POST /bot/${id}/testSession/message → ${m.status}: ${JSON.stringify(m.data).slice(0, 300)}`;
-      else {
-        const sse = await pollImpl(ctx, id, leadId, maxTimeMs);
-        out = extractReplies(sse);
-      }
+      out = await turnImpl(ctx, id, leadId, msg, maxTimeMs, settleMs, undefined, ownLead ? settleMs : 0);
     } catch (e) {
       failure = e.message;
     } finally {
@@ -229,6 +292,69 @@ Object.assign(botCommands, {
       }
     }
     if (failure) fail(3, failure);
-    printJson({ leadId, session: ownLead ? 'reused' : 'ephemeral', sent: msg, replies: out.messages.length ? out.messages : ['(no reply within timeout)'], tools: out.tools });
+    const timedOut = out.messages.length === 0;
+    printJson({ leadId, session: ownLead ? 'reused' : 'ephemeral', sent: msg, replies: out.messages, tools: out.tools, timedOut, status: timedOut ? 'no_reply' : 'replied' });
+    if (timedOut) process.exitCode = 3;
+  },
+  async 'session-create'(ctx) {
+    const [id] = ctx.pos;
+    if (!id) fail(2, 'usage: cb bot session-create <bot_id> [--source <sourceId>]');
+    if (ctx.dryRun) fail(2, 'cb bot session-create cannot be dry-run: it must return a real leadId');
+    const source = ctx.flags.source;
+    if (source && typeof source !== 'string') fail(2, '--source requires a source ID');
+    const leadId = await createSession(ctx, id);
+    if (source) {
+      try {
+        const updated = await ctx.call({ method: 'PUT', base: REST, path: '/bot/{botId}/testSession/{leadId}', params: { botId: id, leadId }, body: { mimicSourceId: source } });
+        if (!updated.ok) throw new Error(`PUT /bot/${id}/testSession/${leadId} → ${updated.status}: ${JSON.stringify(updated.data).slice(0, 300)}`);
+      } catch (error) {
+        try {
+          const cleanup = await ctx.call({ method: 'DELETE', base: REST, path: '/bot/{botId}/testSession/{leadId}', params: { botId: id, leadId } });
+          if (!cleanup.ok) process.stderr.write(`cb: warning: test session leadId=${leadId} may need manual cleanup (HTTP ${cleanup.status})\n`);
+        } catch { process.stderr.write(`cb: warning: test session leadId=${leadId} may need manual cleanup\n`); }
+        throw error;
+      }
+    }
+    printJson({ botId: id, leadId, sourceId: source ?? null, session: 'persistent' });
+  },
+  async 'session-say'(ctx, turnImpl = sendTestTurn) {
+    const [id, leadId, message] = ctx.pos;
+    if (!id || !leadId || !message) fail(2, 'usage: cb bot session-say <bot_id> <lead_id> "<message>" [--max-time 30] [--settle-ms 2500]');
+    if (ctx.dryRun) fail(2, 'cb bot session-say cannot be dry-run: it sends a real test-session message');
+    const { maxTimeMs, settleMs } = testTiming(ctx.flags);
+    const out = await turnImpl(ctx, id, leadId, message, maxTimeMs, settleMs, undefined, settleMs);
+    const timedOut = out.messages.length === 0;
+    printJson({ botId: id, leadId, sent: message, replies: out.messages, tools: out.tools, timedOut, status: timedOut ? 'no_reply' : 'replied' });
+    if (timedOut) process.exitCode = 3;
+  },
+  async 'session-delete'(ctx) {
+    const [id, leadId] = ctx.pos;
+    if (!id || !leadId) fail(2, 'usage: cb bot session-delete <bot_id> <lead_id>');
+    if (ctx.dryRun) fail(2, 'cb bot session-delete cannot be dry-run: no session would be deleted');
+    const deleted = await ctx.call({ method: 'DELETE', base: REST, path: '/bot/{botId}/testSession/{leadId}', params: { botId: id, leadId } });
+    if (!deleted.ok) fail(3, `DELETE /bot/${id}/testSession/${leadId} → ${deleted.status}: ${JSON.stringify(deleted.data).slice(0, 300)}`);
+    printJson({ botId: id, leadId, deleted: true });
   },
 });
+
+// POST /bot/{id}/testSession -> leadId. On failure, reads the session status so the
+// error names the real cause; the persona hint appears only when it is the cause.
+async function createSession(ctx, id) {
+  const created = await ctx.call({ method: 'POST', base: REST, path: '/bot/{botId}/testSession', params: { botId: id }, body: {} });
+  const leadId = created.data?.leadId;
+  if (created.ok && leadId) return leadId;
+  const st = await (ctx.read || ctx.call)({ method: 'GET', base: REST, path: '/bot/{botId}/testSession', params: { botId: id } });
+  const detail = JSON.stringify(st.data ?? created.data).slice(0, 400);
+  const persona = /no_persona/.test(JSON.stringify([created.data, st.data])) ? '\nThe bot has no usable persona: assign one in the CloseBot UI (no API path).' : '';
+  fail(3, `could not create test session: POST /bot/${id}/testSession → HTTP ${created.status}. Session status: ${detail}${persona}`);
+}
+
+function testTiming(flags = {}) {
+  if (flags['max-time'] !== undefined && typeof flags['max-time'] !== 'string') fail(2, '--max-time requires a value in seconds');
+  if (flags['settle-ms'] !== undefined && typeof flags['settle-ms'] !== 'string') fail(2, '--settle-ms requires a value in milliseconds');
+  const seconds = flags['max-time'] === undefined ? 30 : Number(flags['max-time']);
+  const settleMs = flags['settle-ms'] === undefined ? 2500 : Number(flags['settle-ms']);
+  if (!Number.isFinite(seconds) || seconds < 1 || seconds > 120) fail(2, '--max-time must be between 1 and 120 seconds');
+  if (!Number.isFinite(settleMs) || settleMs < 100 || settleMs > 10000) fail(2, '--settle-ms must be between 100 and 10000 milliseconds');
+  return { maxTimeMs: seconds * 1000, settleMs };
+}

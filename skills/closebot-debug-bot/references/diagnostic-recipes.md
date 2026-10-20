@@ -64,7 +64,7 @@ jq --arg old "$OLD_CAL" --arg new "$NEW_CAL" '
   .nodes |= map(
     if .type == "Method" then
       .data.GhlBookingCalendarId = (if .data.GhlBookingCalendarId == $old then $new else .data.GhlBookingCalendarId end) |
-      .data.Sections = (.data.Sections | map(.Body = (.Body | gsub($old; $new))))
+      .data.Sections = (.data.Sections | map(.Body = (.Body | (split($old) | join($new)))))
     elif .type == "Booking" then
       .data.CalendarId = (if .data.CalendarId == $old then $new else .data.CalendarId end)
     else . end

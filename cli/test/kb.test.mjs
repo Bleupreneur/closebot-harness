@@ -318,3 +318,20 @@ test('verify: --from surfaces manifest entries still attached:false from a prior
     assert.deepEqual(out.orphaned, [{ name: 'b.txt', fileId: 'file_2' }, { url: 'https://x.example.com', fileId: 'file_3' }]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// A dry run used to write manifest entries with no fileId, so the next real build
+// skipped those files and `kb verify` crashed on the dry-run request descriptor.
+test('kb build --dry-run makes no calls and leaves the manifest untouched', async () => {
+  const dir = makeTmpDir();
+  try {
+    writeFileSync(join(dir, 'pricing.txt'), 'Botox $12/unit');
+    const { ctx, calls } = mockCtx([], { source: 'src_X', from: dir });
+    ctx.dryRun = true;
+    const orig = process.stdout.write.bind(process.stdout); let out = '';
+    process.stdout.write = (s) => { out += s; return true; };
+    try { await kbCommands.build(ctx); } finally { process.stdout.write = orig; }
+    assert.deepEqual(calls, []);
+    assert.deepEqual(JSON.parse(out).upload, ['pricing.txt']);
+    assert.throws(() => readFileSync(join(dir, '.cb-kb-manifest.json')));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
